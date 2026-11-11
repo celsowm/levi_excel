@@ -1,0 +1,20 @@
+{
+  "name": "levi-operacao-planilha",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test",
+    "predev": "node scripts/restore-model.mjs",
+    "prebuild": "node scripts/restore-model.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0"
+  }
+}
