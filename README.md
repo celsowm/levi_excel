@@ -49,6 +49,11 @@ npm run preview   # prévia do build
 
 No celular, use os controles na tela, incluindo o botão **DASH**, e arraste sobre o cenário para girar a câmera.
 
+### Direção visual e circuito (v0.3)
+A camada `src/lobby-art.js` introduz uma estética institucional contemporânea com piso de pedra texturizado, claraboias, pilares, arcos de metal, recepção curva, vegetação e placas de sinalização. O circuito em `src/action-course.js` agora usa bordas arredondadas, suportes e um **scanner com colisão real**, além do drone anterior. O modelo GLB original e as missões atuais são preservados.
+
+**Limitação:** o cenário ainda é parcialmente procedural; isto é um incremento visual real, não a fase v2 completa nem substitui os testes visuais em Safari e dispositivos móveis.
+
 ### Experimento de ação/plataforma (v0.2)
 Antes de chegar ao terminal de filtro, experimente atravessar a barreira digital usando dash (J/X) ou salto duplo. À direita da entrada há um **circuito opcional** com plataforma de impulso, duas plataformas móveis, drone, checkpoint e anel de chegada. As missões de Excel da POC continuam disponíveis; este incremento valida a movimentação antes do redesign visual/pedagógico v2. O circuito usa colisão de superfície e obstáculo, ainda não é o controlador completo com física em cápsula previsto no plano.
 

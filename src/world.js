@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createActionCourse } from './action-course.js';
+import { createLobbyArt } from './lobby-art.js';
 
 const C = {
   navy: 0x071a2d, deep: 0x102b46, steel: 0x263e59, light: 0xb9d9eb,
@@ -71,10 +72,10 @@ function planter(scene, x, z, height = 1) {
 }
 
 export function createWorld(scene) {
-  scene.background = new THREE.Color(0x091c30);
-  scene.fog = new THREE.FogExp2(0x0b2139, 0.018);
-  scene.add(new THREE.HemisphereLight(0xb9edff, 0x18263f, 2.1));
-  const sun = new THREE.DirectionalLight(0xffffff, 3.2);
+  scene.background = new THREE.Color(0xc7dce0);
+  scene.fog = new THREE.FogExp2(0xb6cdd1, 0.012);
+  scene.add(new THREE.HemisphereLight(0xf6faf7, 0x445c68, 2.05));
+  const sun = new THREE.DirectionalLight(0xfff6df, 2.35);
   sun.position.set(-8, 16, 11);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -90,9 +91,9 @@ export function createWorld(scene) {
   accent2.position.set(10, 6, -18);
   scene.add(accent2);
 
-  const floor = material(0x28465d, { metalness: 0.64, roughness: 0.26 });
+  const floor = material(0x7d9698, { metalness: 0.1, roughness: 0.82 });
   const floorSide = material(0x10263c, { metalness: 0.5 });
-  const inlay = glow(C.cyan, 0.95);
+  const inlay = glow(0x67cdbb, 0.47);
   const orange = glow(C.gold, 1.1);
   const frames = material(0x1d344e, { metalness: 0.7, roughness: 0.24 });
   const windowMat = material(C.glass, { transparent: true, opacity: 0.15, metalness: 0.15, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
@@ -223,9 +224,11 @@ export function createWorld(scene) {
     dust.push({ mesh: p, y, phase: i * 0.89 });
   }
 
+  const lobbyArt = createLobbyArt(scene);
   const actionCourse = createActionCourse(scene);
   let bridgeProgress = 0;
   function update(t, dt, bridgeUnlocked, elevatorUnlocked) {
+    lobbyArt.update(t);
     actionCourse.update(t);
     if (bridgeUnlocked) {
       bridge.visible = true;

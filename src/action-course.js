@@ -1,17 +1,20 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // A small authored action route inside the existing lobby. This is v2's first
 // playable traversal slice, not a replacement for the later art-directed scene.
 export function createActionCourse(scene) {
-  const steel = new THREE.MeshStandardMaterial({ color: 0x29475a, metalness: 0.66, roughness: 0.32 });
-  const edge = new THREE.MeshStandardMaterial({ color: 0x73dce7, emissive: 0x168a9c, emissiveIntensity: 0.66 });
-  const gold = new THREE.MeshStandardMaterial({ color: 0xffd778, emissive: 0x926522, emissiveIntensity: 0.64 });
-  const aqua = new THREE.MeshStandardMaterial({ color: 0x67f7ce, emissive: 0x0f997d, emissiveIntensity: 0.8 });
-  const danger = new THREE.MeshStandardMaterial({ color: 0xfc65a5, emissive: 0x9d194a, emissiveIntensity: 0.8, transparent: true, opacity: 0.75 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x34546a, metalness: 0.55, roughness: 0.45 });
+  const edge = new THREE.MeshStandardMaterial({ color: 0x99d4c9, emissive: 0x217767, emissiveIntensity: 0.32, roughness: 0.32 });
+  const gold = new THREE.MeshStandardMaterial({ color: 0xc49d6d, emissive: 0x52370f, emissiveIntensity: 0.2, metalness: 0.65 });
+  const aqua = new THREE.MeshStandardMaterial({ color: 0x57d8be, emissive: 0x126e5b, emissiveIntensity: 0.55 });
+  const danger = new THREE.MeshStandardMaterial({ color: 0xec6c9b, emissive: 0x9d194a, emissiveIntensity: 0.55, transparent: true, opacity: 0.72 });
+  const cream = new THREE.MeshStandardMaterial({ color: 0xe7e9e2, roughness: 0.8 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0x9a7956, metalness: 0.7, roughness: 0.3 });
   const group = new THREE.Group();
   scene.add(group);
   function block(w, h, d, x, y, z, material, parent = group) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(0.08, w / 6, h / 6, d / 6)), material);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -46,8 +49,15 @@ export function createActionCourse(scene) {
   const barrier = new THREE.Group();
   barrier.position.set(0, 1.01, 9.55);
   group.add(barrier);
-  block(6.3, 1.85, 0.25, 0, 0, 0, danger, barrier);
-  for (let i = -2; i <= 2; i++) block(0.08, 1.75, 0.36, i * 1.15, 0, 0, edge, barrier);
+  // This barrier is an actual gameplay collision, with a clean architectural
+  // frame and contained energy grille. Players can break it with a dash.
+  block(6.65, 0.16, 0.38, 0, 1.01, 0, brass, barrier);
+  block(6.65, 0.16, 0.38, 0, -1.0, 0, brass, barrier);
+  block(0.17, 2.0, 0.38, -3.25, 0, 0, cream, barrier);
+  block(0.17, 2.0, 0.38, 3.25, 0, 0, cream, barrier);
+  for (let i = -5; i <= 5; i++) {
+    block(0.035, 1.85, 0.075, i * 0.52, 0, 0, danger, barrier);
+  }
   let barrierBroken = false;
   marker('CORREDOR / DASH', 0, 7.5);
 
@@ -68,14 +78,22 @@ export function createActionCourse(scene) {
     { x: 7.1, z: 4.8, w: 3.7, d: 2.9, y: 2.4, motion: 0, phase: 0 },
   ];
   for (const surface of surfaces) {
+    // A convincing mechanical support pole and track, aligned with platform
+    // centers. These visuals have no additional gameplay collision.
+    block(0.42, Math.max(0.4, surface.y - 0.15), 0.42,
+      surface.x, Math.max(0.4, surface.y - 0.15) / 2, surface.z, brass);
     const holder = new THREE.Group();
     holder.position.set(surface.x, surface.y, surface.z);
     group.add(holder);
     block(surface.w, 0.27, surface.d, 0, -0.135, 0, steel, holder);
-    block(surface.w - 0.14, 0.035, surface.d - 0.14, 0, 0.015, 0, edge, holder);
-    block(surface.w - 0.3, 0.035, surface.d - 0.3, 0, 0.046, 0, steel, holder);
-    block(0.11, 0.14, surface.d, -surface.w / 2, 0.12, 0, gold, holder);
-    block(0.11, 0.14, surface.d, surface.w / 2, 0.12, 0, gold, holder);
+    block(surface.w - 0.12, 0.055, surface.d - 0.12, 0, 0.025, 0, cream, holder);
+    block(surface.w - 0.34, 0.018, surface.d - 0.34, 0, 0.063, 0, steel, holder);
+    for (const side of [-1, 1]) {
+      block(0.055, 0.11, surface.d - 0.22, side * (surface.w / 2 - 0.08), 0.1, 0, gold, holder);
+    }
+    for (const dz of [-surface.d / 2 + 0.12, surface.d / 2 - 0.12]) {
+      block(surface.w - 0.35, 0.025, 0.055, 0, 0.08, dz, edge, holder);
+    }
     surface.holder = holder;
     surface.top = surface.y + 0.06;
   }
@@ -85,7 +103,12 @@ export function createActionCourse(scene) {
   const droneEye = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), danger);
   droneEye.position.z = -0.31; drone.add(droneBody, droneEye);
   group.add(drone);
-  const beam = block(3.4, 0.075, 0.08, 9.25, 3.3, 8.7, danger);
+  const beam = block(3.4, 0.10, 0.11, 9.25, 3.3, 8.7, danger);
+  const emitterL = block(0.18, 0.58, 0.3, 7.5, 3.25, 8.7, brass);
+  const emitterR = block(0.18, 0.58, 0.3, 11, 3.25, 8.7, brass);
+  const hazardLight = new THREE.PointLight(0xff89ba, 2.5, 3.5, 2);
+  hazardLight.position.set(9.25, 3.35, 8.7);
+  group.add(hazardLight);
 
   function getSurfaceHeight(x, z, footY, floorHeight) {
     let found = floorHeight;
@@ -110,10 +133,17 @@ export function createActionCourse(scene) {
   }
   function hazard(position, t, dashActive) {
     if (dashActive) return false;
-    if (position.y > 1.6 &&
-        Math.hypot(position.x - drone.position.x, position.z - drone.position.z) < 0.85 &&
-        Math.abs(position.y + 0.95 - drone.position.y) < 1.25) return true;
-    return false;
+    const droneHit = position.y > 1.6 &&
+      Math.hypot(position.x - drone.position.x, position.z - drone.position.z) < 0.85 &&
+      Math.abs(position.y + 0.95 - drone.position.y) < 1.25;
+    // Visible scan bar is a real, telegraphed hazard: only collides when the
+    // avatar is on the elevated route and overlaps the scanner at torso height.
+    const scanHit = position.y > 1.9 &&
+      Math.abs(position.x - beam.position.x) < 1.68 &&
+      Math.abs(position.z - beam.position.z) < 0.35 &&
+      position.y + 1.6 > beam.position.y &&
+      position.y < beam.position.y + 0.2;
+    return droneHit || scanHit;
   }
   function jumpPad(x, z) { return Math.hypot(x - 8, z - 16) < 1.04; }
   function atFinish(position) {
@@ -127,7 +157,11 @@ export function createActionCourse(scene) {
     }
     drone.position.set(9.2 + Math.sin(t * 1.25) * 0.7, 3.5 + Math.sin(t * 2) * 0.14, 8.8);
     drone.rotation.y = t * 0.7;
-    beam.position.x = 9.25 + Math.sin(t * 2.1) * 1.0;
+    const sweep = Math.sin(t * 2.1) * 0.8;
+    beam.position.x = 9.25 + sweep;
+    emitterL.position.x = 7.5 + sweep;
+    emitterR.position.x = 11 + sweep;
+    hazardLight.position.x = 9.25 + sweep;
     beam.material.opacity = 0.45 + 0.3 * Math.abs(Math.sin(t * 3));
     padRing.rotation.z = t * 0.65;
     finish.rotation.z = -t * 0.7;

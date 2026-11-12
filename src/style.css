@@ -199,3 +199,8 @@ kbd { display: inline-block; border: 1px solid #ffffff48; border-bottom-width: 3
   .touch-actions #touch-dash { width: 60px; height: 60px; }
   .touch-actions { padding-bottom: 16px; }
 }
+
+/* More restrained visual language for the 0.3 art-direction pass. */
+.hud { filter: drop-shadow(0 12px 24px rgba(10, 30, 35, 0.12)); }
+.waypoint { letter-spacing: 0.03em; }
+#dash-ready { font-variant-numeric: tabular-nums; }
