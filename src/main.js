@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createWorld } from './world.js';
 import { createLevi } from './character.js';
+import { readMovementInput, smoothVelocity } from './movement.js';
 import { createMissionUI } from './missions.js';
 import './style.css';
 
@@ -23,7 +24,8 @@ const clock = new THREE.Clock();
 const tempDir = new THREE.Vector3();
 const cameraTarget = new THREE.Vector3();
 const cameraAim = new THREE.Vector3();
-const player = { position: new THREE.Vector3(0, 0.11, 15), speed: 6, vy: 0, grounded: true };
+const cameraAimTarget = new THREE.Vector3();
+const player = { position: new THREE.Vector3(0, 0.11, 15), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
 const game = { started: false, completed: false, filterSolved: false, sumSolved: false, cubes: 0, reachedFarSide: false, toastTimeout: null };
 const pressed = new Set();
 const touch = new Set();
@@ -113,6 +115,7 @@ function updateInteraction() {
 function respawn() {
   player.position.set(0, 0.11, game.reachedFarSide ? -11 : game.filterSolved ? 1 : 15);
   player.vy = 0;
+  player.velocity.set(0, 0, 0);
   player.grounded = true;
   toast('Oops! Levi voltou ao último ponto seguro.', 2400);
 }
@@ -131,21 +134,30 @@ function collectCubes() {
   }
 }
 function movePlayer(dt) {
-  const movement = new THREE.Vector3();
   const down = (key) => pressed.has(key) || touch.has(key);
-  if (down('KeyW') || down('ArrowUp') || down('up')) movement.z -= 1;
-  if (down('KeyS') || down('ArrowDown') || down('down')) movement.z += 1;
-  if (down('KeyA') || down('ArrowLeft') || down('left')) movement.x -= 1;
-  if (down('KeyD') || down('ArrowRight') || down('right')) movement.x += 1;
-  const moving = movement.lengthSq() > 0;
-  movement.normalize();
+  const input = readMovementInput(down);
+  const hasInput = input.x !== 0 || input.z !== 0;
   const boosted = down('ShiftLeft') || down('ShiftRight');
-  const speed = boosted ? player.speed * 1.48 : player.speed;
-  levi.face(movement, dt);
-  const nextX = THREE.MathUtils.clamp(player.position.x + movement.x * speed * dt, -13.4, 13.4);
-  const nextZ = THREE.MathUtils.clamp(player.position.z + movement.z * speed * dt, -21.4, 19.5);
+  const topSpeed = player.speed * (boosted ? 1.45 : 1);
+
+  // Responsive acceleration on key-down and stronger braking on key-up.
+  // Keeps the movement smooth without the slippery "ice skating" feeling.
+  const response = hasInput ? 15 : 22;
+  player.velocity.x = smoothVelocity(player.velocity.x, input.x * topSpeed, dt, response);
+  player.velocity.z = smoothVelocity(player.velocity.z, input.z * topSpeed, dt, response);
+  if (!hasInput && Math.hypot(player.velocity.x, player.velocity.z) < 0.04) {
+    player.velocity.set(0, 0, 0);
+  }
+
+  const movementSpeed = Math.hypot(player.velocity.x, player.velocity.z);
+  levi.face(player.velocity, dt);
+  const nextX = THREE.MathUtils.clamp(player.position.x + player.velocity.x * dt, -13.4, 13.4);
+  const nextZ = THREE.MathUtils.clamp(player.position.z + player.velocity.z * dt, -21.4, 19.5);
+  if (nextX === -13.4 || nextX === 13.4) player.velocity.x = 0;
+  if (nextZ === -21.4 || nextZ === 19.5) player.velocity.z = 0;
   player.position.x = nextX;
   player.position.z = nextZ;
+
   if (jumpQueued && player.grounded) {
     player.vy = 9.4;
     player.grounded = false;
@@ -165,15 +177,17 @@ function movePlayer(dt) {
   if (game.filterSolved && player.position.z < -8.5 && groundY !== null) game.reachedFarSide = true;
   if (player.position.y < -11) respawn();
   levi.root.position.copy(player.position);
-  levi.update(dt, moving, !player.grounded, boosted, game.completed);
+  levi.update(dt, movementSpeed, !player.grounded, boosted, game.completed);
   collectCubes();
 }
+
 function updateCamera(dt) {
   const p = player.position;
   const fovDistance = innerWidth < 700 ? 10.0 : 9.0;
   cameraTarget.set(p.x, p.y + (innerWidth < 700 ? 5.9 : 5.6), p.z + fovDistance);
-  camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 4.1));
-  cameraAim.set(p.x, p.y + 1.7, p.z - 2.3);
+  camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 7.5));
+  cameraAimTarget.set(p.x, p.y + 1.7, p.z - 2.3);
+  cameraAim.lerp(cameraAimTarget, 1 - Math.exp(-dt * 9));
   camera.lookAt(cameraAim);
 }
 function animate() {
@@ -234,6 +248,7 @@ $('#start').addEventListener('click', () => {
 
 camera.position.set(0, 6.5, 24.5);
 camera.lookAt(0, 2, 10);
+cameraAim.set(player.position.x, player.position.y + 1.7, player.position.z - 2.3);
 levi.root.position.copy(player.position);
 levi.ready.then(() => {
   ready = true;

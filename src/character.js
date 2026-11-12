@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { modelFacingYaw, smoothYaw } from './movement.js';
 
 const CLIPS = ['Parado', 'Andar', 'Pular', 'Acenar', 'Dancar', 'Comemorar'];
 
@@ -61,21 +62,22 @@ export function createLevi(scene) {
     current = name;
   }
 
-  function update(dt, moving, jumping, boosted, victory) {
+  function update(dt, movementSpeed, jumping, boosted, victory) {
     if (mixer) mixer.update(dt);
     if (celebrationRemaining > 0) celebrationRemaining = Math.max(0, celebrationRemaining - dt);
-    const desired = (victory || celebrationRemaining > 0) ? 'Comemorar' : jumping ? 'Pular' : moving ? 'Andar' : 'Parado';
+    const desired = (victory || celebrationRemaining > 0) ? 'Comemorar'
+      : jumping ? 'Pular' : movementSpeed > 0.12 ? 'Andar' : 'Parado';
     if (desired !== current) play(desired);
-    if (current === 'Andar') actions.get('Andar')?.setEffectiveTimeScale(boosted ? 1.55 : 1.1);
+    // The walk clip is in-place: match its playback rate to ground speed.
+    if (current === 'Andar') {
+      actions.get('Andar')?.setEffectiveTimeScale(THREE.MathUtils.clamp(movementSpeed / 2.65, 0.8, 2.45));
+    }
   }
 
   function face(direction, dt) {
-    if (direction.lengthSq() < 1e-4) return;
-    // The glTF model's local forward axis may vary; adjust FORWARD_OFFSET if needed.
-    const FORWARD_OFFSET = Math.PI;
-    const target = Math.atan2(direction.x, direction.z) + FORWARD_OFFSET;
-    const delta = Math.atan2(Math.sin(target - root.rotation.y), Math.cos(target - root.rotation.y));
-    root.rotation.y += delta * Math.min(1, dt * 12);
+    const target = modelFacingYaw(direction.x, direction.z);
+    if (target === null) return;
+    root.rotation.y = smoothYaw(root.rotation.y, target, dt);
   }
 
   return { root, visual, ready, play, update, face };
