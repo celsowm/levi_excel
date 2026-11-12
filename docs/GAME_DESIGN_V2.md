@@ -53,6 +53,9 @@ Keep blockout grey until an art pass with consistent authored modular architectu
 See `art/concepts/` for mood only, **not** blueprints. The intended finish is deliberately less saturated and more coherent than the current images and v0.1 scene.
 
 ## 4. Core gameplay loop
+
+**Action is the main game, not an intermission.** The World 01 target is 65–70% active traversal/exploration and 30–35% spreadsheet learning. Require jump, double jump, dash, moving platforms, safe drone encounters and a camera-relative third-person controller. See [ACTION_PLATFORM_V2.md](ACTION_PLATFORM_V2.md) for the mandatory mechanic, pacing and acceptance spec. Keep a 2–3-minute pure platforming sequence with no Excel UI.
+
 **Observe → Explore → Identify a data problem → Interact with the sheet → See immediate world response → Apply the skill again → Progress.**
 
 A task should have two parts:
@@ -104,4 +107,4 @@ Target validation with FIA learners and educators, not just developer opinions.
 - Record only aggregate opt-in pilot feedback. No personal names, public performance or real process IDs in demo datasets.
 
 ## 10. Decision
-Build the **World 01 vertical slice**, art-first and pedagogy-first, before extending worlds. Preserve current POC and GitHub Pages as baseline until v2 passes acceptance gates. Development should not imply an already finished v2 playable game.
+Build the **World 01 vertical slice**, art-first, action/platforming-first and pedagogy-first, before extending worlds. A sequence of terminals in a beautiful room is not the game's core. Preserve current POC and GitHub Pages as baseline until v2 passes acceptance gates. Development should not imply an already finished v2 playable game.

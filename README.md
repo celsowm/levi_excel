@@ -1,9 +1,9 @@
 # LEVI — Operação Planilha · POC 0.1
 
 > **Roadmap v2:** o protótipo público ainda é a POC 0.1. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
-> Consulte [Game Design v2](docs/GAME_DESIGN_V2.md), [Trilha Excel](docs/EXCEL_CURRICULUM_V2.md), [World 01 / Vertical Slice](docs/VERTICAL_SLICE_V2.md) e [Plano técnico para Codex](docs/IMPLEMENTATION_PLAN_V2.md).
+> Consulte [Game Design v2](docs/GAME_DESIGN_V2.md), [Trilha Excel](docs/EXCEL_CURRICULUM_V2.md), [World 01 / Vertical Slice](docs/VERTICAL_SLICE_V2.md) e [Plano técnico para Codex](docs/IMPLEMENTATION_PLAN_V2.md) e [Ação e Plataforma 3D](docs/ACTION_PLATFORM_V2.md).
 
-Jogo educativo 3D com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O saguão futurista tem plataformas, coletáveis e dois desafios: filtrar uma planilha para construir uma ponte e usar `SOMA` para ligar o elevador.
+Jogo educativo de **ação e plataforma 3D** com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O saguão futurista tem plataformas, coletáveis e dois desafios: filtrar uma planilha para construir uma ponte e usar `SOMA` para ligar o elevador.
 
 ![Conceito do saguão](art/concepts/concept-01.jpg)
 

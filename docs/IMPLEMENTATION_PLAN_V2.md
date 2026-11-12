@@ -1,7 +1,7 @@
 # LEVI Excel — v2 implementation plan for Codex
 **Repository:** `celsowm/levi_excel`  
 **Target branch:** `main` (project owner preference; avoid long-lived compatibility scaffolding)  
-**Primary objective:** replace the v0.1 look and teaching flow with the World 01 vertical slice defined in `GAME_DESIGN_V2.md`, `VERTICAL_SLICE_V2.md` and `EXCEL_CURRICULUM_V2.md`.
+**Primary objective:** replace the v0.1 look and teaching flow with a true **3D action-platformer**. Required specs: `GAME_DESIGN_V2.md`, `VERTICAL_SLICE_V2.md`, `EXCEL_CURRICULUM_V2.md` **and `ACTION_PLATFORM_V2.md`**.
 
 > This is a **plan**, not a claim that the redesign is already implemented. Keep the deployed playable build working until each new milestone satisfies its exit gates.
 
@@ -34,7 +34,9 @@ src/
     asset-loader.js            # glTF loading, explicit errors and progress
     input-controller.js        # keyboard, pointer, touch, focus discipline
     player-controller.js       # horizontal motion, gravity, collision, triggers
-    follow-camera.js           # framing, smoothing, occlusion
+    follow-camera.js           # orbit, camera-relative movement, smoothing, occlusion
+    traversal-abilities.js     # jump, double jump, dash, coyote/buffer state
+    encounter-system.js        # hazards, moving platforms, drone behavior
     audio.js                   # SFX/music, mute control
   actors/
     levi.js                    # original model, animations, yaw calibration
@@ -146,8 +148,19 @@ Do **not** use `eval`/`Function`, raw `innerHTML` for learner input, or arbitrar
 
 **Exit:** stage is clearly more professional than v0.1 before teaching interactions are added; player can traverse without clipping, invisible collisions, accidental pits or motion discomfort.
 
+### P2A — Core action-platforming gate (must precede P3)
+**Tasks**
+- Build proper capsule/kinematic collision, ground/wall detection, moving-platform carry and checkpoint respawn.
+- Implement jump, **double jump**, dash with explicit cooldown, coyote time and jump buffer; visually readable procedural dash FX using the original GLB.
+- Upgrade camera to a collision-aware orbit system with **camera-relative input** for keyboard, touch and optionally gamepad.
+- Author one genuinely fun 2–3-minute corridor with a dash gap, moving lift, a telegraphed scan hazard, patrol drone and alternate skill route; no worksheets in this sequence.
+- Add deterministic movement tests (cooldown, jumps, edge behavior), browser smoke and feel/performance validation on Safari.
+
+**Exit:** World 01 platforming is enjoyable without spreadsheet UI. Do not start the full M00–M03 series until this is demonstrated.
+
 ### P3 — First four learn-by-doing missions
 **Tasks**
+- Interleave meaningful traversal/action beats **between each worksheet** per `ACTION_PLATFORM_V2.md`, targeting 65–70% active play.
 - M00 find `ATD-104` in an extremely small table, without a formula.
 - M01 select/edit one cell, with undo.
 - M02 sort 4 records, preserving row integrity; physical queue of drones reorders.
@@ -157,7 +170,7 @@ Do **not** use `eval`/`Function`, raw `innerHTML` for learner input, or arbitrar
 - Progressive hint system with 3 tiers and no arbitrary failure penalties.
 - Feedback in-scene (drone movement, signs, lights, gate), not just a success toast.
 
-**Exit:** an absolute beginner can finish the slice using discoverable UI without typing any formula.
+**Exit:** an absolute beginner can finish the slice using discoverable UI without typing any formula, while playing a proper platformer with movement mastery and clear world feedback.
 
 ### P4 — Progressive Excel worlds, one skill at a time
 **Tasks**
@@ -209,6 +222,10 @@ All CI must remain compatible with GitHub Pages deployment on `main`. Avoid movi
 | V2-06 | P0 | Art | Greybox World 01 layout with landmarks | V2-05 |
 | V2-07 | P0 | Art | Real visual art pass and cohesive lighting | V2-06 |
 | V2-08 | P0 | UI | Diegetic worksheet grid, focus + touch | V2-03, V2-07 |
+| V2-A1 | P0 | Platforming | Capsule collisions, camera-relative orbit, checkpoints | V2-05 |
+| V2-A2 | P0 | Platforming | Double jump, dash, movement tests and effects | V2-A1 |
+| V2-A3 | P0 | Level | Moving platforms, scanner, drone patrol, chase section | V2-A2, V2-06 |
+| V2-A4 | P0 | QA | Standalone 2–3-minute action-playtest gate | V2-A3 |
 | V2-09 | P0 | Missions | M00 + M01 | V2-08 |
 | V2-10 | P0 | Missions | M02 + M03 + world reactions | V2-04, V2-09 |
 | V2-11 | P1 | Assessment | M04 optional transfer task and skill summary | V2-10 |
@@ -222,6 +239,7 @@ All CI must remain compatible with GitHub Pages deployment on `main`. Avoid movi
 
 ## H. Release acceptance checklist
 - [ ] Original Levi appears with right facing direction and animations, without moonwalking.
+- [ ] Double jump, dash, camera-relative controls, moving platforms and forgiving checkpoints feel responsive, with a 2–3-minute no-Excel action sequence.
 - [ ] A brand-new player can finish World 01 without encountering a required formula.
 - [ ] Every task has matching world response and an equivalent spreadsheet operation.
 - [ ] Sorting does not tear rows apart; filtering never mutates source data.
@@ -235,10 +253,12 @@ All CI must remain compatible with GitHub Pages deployment on `main`. Avoid movi
 ## I. Codex start instructions (copy/paste)
 ```text
 Work in celsowm/levi_excel on main. Read docs/GAME_DESIGN_V2.md,
-docs/VERTICAL_SLICE_V2.md, docs/EXCEL_CURRICULUM_V2.md, and
-docs/IMPLEMENTATION_PLAN_V2.md before touching code.
+docs/VERTICAL_SLICE_V2.md, docs/EXCEL_CURRICULUM_V2.md,
+docs/ACTION_PLATFORM_V2.md, and docs/IMPLEMENTATION_PLAN_V2.md
+before touching code.
 
-Start only with P0 + P1 and the initial World 01 greybox. Maintain
+Start with P0 + P1, then implement the P2A platforming gate
+before the spreadsheet-driven World 01 missions. Start the World 01 greybox. Maintain
 a playable GitHub Pages build. Preserve the original Levi GLB,
 its animation clips, scripts/restore-model.mjs, and the Pages base URL.
 Fix architecture, worksheet operations and navigation first; do not add

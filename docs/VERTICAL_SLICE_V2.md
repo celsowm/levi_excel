@@ -1,8 +1,11 @@
 # World 01 — Recepção Inteligente | Vertical slice specification
-**Goal:** replace the first impression of v0.1 with a short polished, learnable level.  
+**Goal:** replace the first impression of v0.1 with a visually polished **3D action-platform level**, where the learner explores and solves short spreadsheet problems between genuine platforming sequences.  
 **Status:** spec only, not implemented.
 
-## Player path (8–12 min target)
+## Player path (12–16 min first completion target; no timer)
+
+> The path below is the spreadsheet skeleton, **not** the entire gameplay route. Between every worksheet event, insert substantial movement/action encounters as defined in [ACTION_PLATFORM_V2.md](ACTION_PLATFORM_V2.md): safe jumps → dash barrier / scanner → double-jump mezzanine → drone chase → final jump-pad gauntlet. Preserve a 65–70% platforming target and require at least one 2–3-minute segment with no spreadsheet UI.
+
 ```text
 [ARRIVAL: daylight + garden]
           |
@@ -68,7 +71,7 @@ All stations are physically contiguous with readable paths. No full-screen telep
 - Replay test W/S/A/D and controls at 30, 60, 120 fps to avoid dt-dependent feel.
 
 ## What the first downloadable pilot should contain
-One fully playable level, **M00–M03**, optional M04, functional pause/resume, progress save locally, accessibility options, final skill summary and optional export of a small dataset. No backend necessary.
+One fully playable **action-platform** level: **M00–M03**, optional M04, **run/jump/double jump/dash**, moving platform, telegraphed scanner, harmless patrol drones, chase, checkpoints, camera-relative movement with collision-aware orbit, final traversal payoff, functional pause/resume, progress save locally, accessibility options, and final skill summary. Optional safe dataset export. No backend necessary.
 
 ## Explicitly reject in this slice
 No boss fight, no "SUM" inside the first five minutes, no sprawling warehouse, no dozens of identical platforms, no giant translucent blue exercise modals, no forced tutorial text screens, no hidden answer validation.
