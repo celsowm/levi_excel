@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createActionCourse } from './action-course.js';
 import { createLobbyArt } from './lobby-art.js';
+import { boxCollider, moveWithCollisions, shortenCameraArm } from './collisions.js';
 
 const C = {
   navy: 0x071a2d, deep: 0x102b46, steel: 0x263e59, light: 0xb9d9eb,
@@ -56,26 +57,11 @@ function sign(scene, title, subtitle, x, y, z, width = 5, accent = '#75faff') {
   label.renderOrder = 2;
   return label;
 }
-function planter(scene, x, z, height = 1) {
-  const dark = material(C.deep, { metalness: 0.5 });
-  box(scene, 1.55, 0.7, 1.55, x, 0.35, z, dark);
-  box(scene, 1.6, 0.09, 1.6, x, 0.72, z, glow(C.cyan, 0.65));
-  cylinder(scene, 0.12, 0.18, height, x, 0.78 + height / 2, z, material(0x406a57));
-  const leafMat = material(0x3bdb91, { roughness: 0.74, metalness: 0 });
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    const leaf = addMesh(scene, new THREE.SphereGeometry(0.48, 10, 8), leafMat,
-      x + Math.cos(a) * 0.44, 1.65 + height * 0.42 + (i % 2) * 0.14, z + Math.sin(a) * 0.43);
-    leaf.scale.set(0.9, 0.74, 1.2);
-  }
-  addMesh(scene, new THREE.SphereGeometry(0.5, 12, 8), leafMat, x, 1.8 + height * 0.4, z);
-}
-
 export function createWorld(scene) {
   scene.background = new THREE.Color(0xc7dce0);
   scene.fog = new THREE.FogExp2(0xb6cdd1, 0.012);
-  scene.add(new THREE.HemisphereLight(0xf6faf7, 0x445c68, 2.05));
-  const sun = new THREE.DirectionalLight(0xfff6df, 2.35);
+  scene.add(new THREE.HemisphereLight(0xf6faf7, 0x445c68, 1.45));
+  const sun = new THREE.DirectionalLight(0xfff6df, 1.75);
   sun.position.set(-8, 16, 11);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -84,10 +70,10 @@ export function createWorld(scene) {
   sun.shadow.camera.near = 0.1; sun.shadow.camera.far = 85;
   sun.shadow.bias = -0.0002;
   scene.add(sun);
-  const accent = new THREE.PointLight(C.cyan, 130, 16, 2);
+  const accent = new THREE.PointLight(0x93dfcb, 35, 14, 2);
   accent.position.set(-1, 7, -2);
   scene.add(accent);
-  const accent2 = new THREE.PointLight(C.pink, 75, 13, 2);
+  const accent2 = new THREE.PointLight(0xd3adcb, 18, 12, 2);
   accent2.position.set(10, 6, -18);
   scene.add(accent2);
 
@@ -104,21 +90,6 @@ export function createWorld(scene) {
   for (const z of [9, -15]) {
     box(scene, 27.6, 0.18, z === 9 ? 21.6 : 13.6, 0, 0.01, z, material(0x3c5b70, { metalness: 0.55, roughness: 0.28 }), false);
   }
-  for (let x = -12; x <= 12; x += 2) {
-    for (const [minZ, maxZ] of [[-1, 19], [-21, -9]]) {
-      box(scene, 0.025, 0.014, maxZ - minZ, x, 0.11, (minZ + maxZ) / 2, material(0x6fa7ba, { transparent: true, opacity: 0.17 }), false);
-    }
-  }
-  for (const z of [-20, -17, -14, -11, -1, 2, 5, 8, 11, 14, 17]) {
-    box(scene, 26, 0.014, 0.032, 0, 0.12, z, material(0x6fa7ba, { transparent: true, opacity: 0.22 }), false);
-  }
-  for (const z of [-20, -10, 0, 10, 19]) {
-    // Atrium columns, light strips, window framing.
-    for (const x of [-13.1, 13.1]) {
-      box(scene, 0.7, 15, 0.72, x, 7.5, z, frames);
-      box(scene, 0.14, 14, 0.18, x + (x < 0 ? 0.36 : -0.36), 7.5, z, inlay, false);
-    }
-  }
   for (const z of [-20, -15, -10, -5, 0, 5, 10, 15, 20]) {
     for (const x of [-13.8, 13.8]) {
       box(scene, 0.17, 14.2, 4.6, x, 7.4, z, windowMat, false);
@@ -128,49 +99,18 @@ export function createWorld(scene) {
     box(scene, 27.8, 0.17, 0.36, 0, 14.5, z, frames);
     box(scene, 23, 0.08, 0.12, 0, 14.4, z + 0.18, inlay, false);
   }
-  // Exterior holographic sky panels behind glazing add background depth.
-  for (let i = 0; i < 15; i++) {
-    const side = i % 2 ? -1 : 1;
-    const w = 2 + (i % 4) * 0.7;
-    const h = 3 + (i % 5) * 1.2;
-    const z = -23 + i * 3.0;
-    const tower = box(scene, w, h, 1.5, side * (17 + (i % 3) * 2.2), h / 2 - 0.8, z,
-      material(i % 3 === 0 ? 0x204665 : 0x17314e, { metalness: 0.3, roughness: 0.7 }));
-    tower.castShadow = false;
-    box(scene, w * 0.75, 0.05, 1.55, tower.position.x, h * 0.6, z, i % 3 === 0 ? orange : inlay, false);
-  }
-  // Reception: readable architectural context rather than endless abstract platforms.
-  box(scene, 7.1, 1.45, 2.2, -8.4, 0.72, 10, material(0x3e6575, { metalness: 0.35, roughness: 0.4 }));
-  box(scene, 7.3, 0.14, 2.35, -8.4, 1.48, 10, material(0xe5f8ff, { metalness: 0.32 }));
-  box(scene, 7.2, 0.12, 0.08, -8.4, 0.92, 11.18, inlay, false);
-  sign(scene, 'PGE-RJ', 'CENTRAL DE DADOS', -8.4, 4.3, 12.25, 6.3);
-  planter(scene, -11, 16, 1.05);
-  planter(scene, 10.7, 14, 1.2);
-  planter(scene, 10.8, -13, 0.85);
-  planter(scene, -10.4, -14, 1.15);
-
-  // Holographic guide walls / visual landmarks.
-  sign(scene, 'SETOR DE TREINAMENTO', 'MISSÃO 01 / FILTRAGEM', 7.2, 3.65, 8.5, 6.4, '#8cfdb8');
-  sign(scene, 'ARQUIVO INTELIGENTE', 'MISSÃO 02 / FÓRMULAS', -7.4, 4.2, -19.7, 6.8, '#ffd67a');
-  const holo = new THREE.Group();
-  scene.add(holo);
-  const chartMats = [glow(C.green, 0.9), glow(C.cyan, 1.1), glow(C.blue, 0.9), glow(C.gold, 0.9)];
-  for (let i = 0; i < 4; i++) {
-    const h = 1.1 + i * 0.7;
-    box(holo, 0.5, h, 0.38, 8.2 + i * 0.8, 1.2 + h / 2, 8.8, chartMats[i], false);
-  }
-  box(scene, 5.5, 0.1, 0.06, 9, 1, 8.8, inlay, false);
-
-  // Interactive consoles. Sprite / glowing ring identifies them in the world.
+  const staticColliders = [];
+  // Interactive consoles: registered collision volumes and restrained small labels.
   function terminal(x, z, name, tint) {
     const stand = box(scene, 2.2, 1.2, 1.35, x, 0.7, z, frames);
     stand.rotation.x = -0.05;
     box(scene, 2.3, 0.09, 1.4, x, 1.35, z, glow(tint, 0.95), false);
     const screen = box(scene, 2.45, 1.3, 0.14, x, 2.12, z - 0.18, material(0x083343, { emissive: tint, emissiveIntensity: 0.34, metalness: 0.1 }), false);
     screen.rotation.x = -0.16;
-    sign(scene, name, 'PRESSIONE E', x, 2.18, z - 0.05, 2.22, '#9efeff');
+    sign(scene, name, '', x, 2.18, z - 0.08, 1.12, '#9efeff');
     const ring = addMesh(scene, new THREE.TorusGeometry(1.65, 0.045, 8, 64), glow(tint, 1.2), x, 0.14, z, false);
     ring.rotation.x = Math.PI / 2;
+    staticColliders.push(boxCollider('terminal-' + name, x, z, 2.65, 1.85, 0.05, 2.9));
     return { x, z, ring };
   }
   const filterTerminal = terminal(0, 1.45, 'FILTRO', C.cyan);
@@ -199,9 +139,10 @@ export function createWorld(scene) {
   box(scene, 4.7, 0.13, 0.2, 0, 5.9, -21.07, glow(C.pink, 1.1), false);
   const elevatorGlow = glow(C.pink, 1.2);
   const elevatorHeader = box(scene, 4.8, 0.23, 0.22, 0, 6.18, -21.06, elevatorGlow, false);
-  sign(scene, 'ELEVADOR', 'NÚCLEO DA PGE', 0, 7.48, -21.2, 5, '#9bffe0');
+  sign(scene, 'ELEVADOR', '', 0, 7.35, -21.13, 2.8, '#9bffe0');
+  staticColliders.push(boxCollider('elevator-door', 0, -21.28, 4.55, 0.32, 0, 5.8));
   const glitchBlocks = [];
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 6; i++) {
     const m = box(scene, 0.3 + (i % 4) * 0.14, 0.33, 0.35,
       8 + Math.sin(i * 8) * 2.6, 3 + (i % 7) * 0.85, -18 + Math.cos(i * 4) * 2,
       glow(i % 3 === 0 ? C.pink : C.blue, 1.1), false);
@@ -214,18 +155,12 @@ export function createWorld(scene) {
     const halo = addMesh(scene, new THREE.TorusGeometry(0.47, 0.023, 6, 30), glow(C.cyan, 0.75), pos[0], 1.23, pos[1], false);
     collectibles.push({ x: pos[0], z: pos[1], mesh, halo, baseY: 1.23, collected: false, phase: i * 1.35 });
   }
-  // Suspended atmospheric light particles.
-  const dust = [];
-  for (let i = 0; i < 75; i++) {
-    const x = Math.sin(i * 12.9898) * 12;
-    const z = Math.cos(i * 19.834) * 19;
-    const y = 2 + ((i * 17) % 10);
-    const p = box(scene, 0.07, 0.07, 0.07, x, y, z, i % 4 ? inlay : orange, false);
-    dust.push({ mesh: p, y, phase: i * 0.89 });
-  }
-
   const lobbyArt = createLobbyArt(scene);
   const actionCourse = createActionCourse(scene);
+  staticColliders.push(...lobbyArt.colliders);
+  if (actionCourse.colliders) staticColliders.push(...actionCourse.colliders);
+  staticColliders.push(boxCollider('wall-left', -13.85, -1, 0.28, 43, 0, 13.8));
+  staticColliders.push(boxCollider('wall-right', 13.85, -1, 0.28, 43, 0, 13.8));
   let bridgeProgress = 0;
   function update(t, dt, bridgeUnlocked, elevatorUnlocked) {
     lobbyArt.update(t);
@@ -255,7 +190,6 @@ export function createWorld(scene) {
       c.halo.position.y = c.mesh.position.y;
       c.halo.rotation.y += dt * 1.3;
     }
-    for (const d of dust) d.mesh.position.y = d.y + Math.sin(t + d.phase) * 0.25;
     for (const g of glitchBlocks) {
       g.mesh.position.y = g.y + Math.sin(t * 1.7 + g.phase) * 0.22;
       g.mesh.rotation.y += dt * 0.33;
@@ -269,9 +203,22 @@ export function createWorld(scene) {
     if (z >= -2 && z <= 20) floor = 0.11;
     if (z >= -22 && z <= -8) floor = 0.11;
     if (bridgeUnlocked && Math.abs(x) <= 2.1 && z >= -8 && z <= -2) floor = 0.11;
-    return actionCourse.getSurfaceHeight(x, z, footY, floor);
+    const furniture = lobbyArt.getWalkableHeight(x, z, footY, floor);
+    return actionCourse.getSurfaceHeight(x, z, footY, furniture);
+  }
+  function resolvePlayerMove(position, dx, dz, footY) {
+    const moved = moveWithCollisions(position, dx, dz, footY, staticColliders);
+    return {
+      x: THREE.MathUtils.clamp(moved.x, -13.35, 13.35),
+      z: THREE.MathUtils.clamp(moved.z, -21.4, 19.5),
+      hitX: moved.hitX, hitZ: moved.hitZ,
+    };
+  }
+  function resolveCamera(from, to) {
+    return shortenCameraArm(from, to, staticColliders, 0.21);
   }
   return {
+    resolvePlayerMove, resolveCamera,
     receptionTerminal: { x: -8.4, z: 10 },
     setReceptionSolved: lobbyArt.setReceptionSolved,
     filterTerminal, sumTerminal, elevator: { x: 0, z: -20.55 },

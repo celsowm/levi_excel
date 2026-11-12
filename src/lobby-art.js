@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { boxCollider } from './collisions.js';
 
 // World 01 visual direction: warm civic-modern architecture with restrained
 // technology accents. Built as a separate, reusable scene-art layer: it does
@@ -7,6 +8,12 @@ export function createLobbyArt(scene) {
   const art = new THREE.Group();
   art.name = 'LobbyArchitectureV2';
   scene.add(art);
+  // Physics and presentation share authored coordinates; do not infer collision
+  // from arbitrary visible meshes at runtime.
+  const colliders = [];
+  const walkable = [];
+  const solid = (id, x, z, width, depth, minY = 0, maxY = 2) =>
+    colliders.push(boxCollider(id, x, z, width, depth, minY, maxY));
 
   const stone = new THREE.MeshStandardMaterial({ color: 0xe2e8df, roughness: 0.88, metalness: 0.02 });
   const pale = new THREE.MeshStandardMaterial({ color: 0xf6f2e8, roughness: 0.72, metalness: 0.05 });
@@ -103,6 +110,7 @@ export function createLobbyArt(scene) {
     for (const side of [-1, 1]) {
       const x = side * 12.85;
       cyl(0.41, 0.43, 11.8, x, 5.95, z, pale, 24);
+      solid('pilaster-' + side + '-' + z, x, z, 0.9, 0.9, 0, 12);
       cyl(0.52, 0.52, 0.18, x, 11.84, z, bronze, 24);
       cyl(0.48, 0.48, 0.12, x, 0.21, z, bronze, 24);
     }
@@ -155,6 +163,8 @@ export function createLobbyArt(scene) {
   deskTop.geometry.rotateX(-Math.PI / 2);
   deskTop.position.y = 1.48;
   art.add(shadow(deskTop));
+  solid('reception-desk', -8.7, 10.7, 6.15, 2.8, 0.08, 1.64);
+  walkable.push({ x: -8.7, z: 10.7, halfX: 2.93, halfZ: 1.2, height: 1.59 });
 
   function plaque(lines, x, y, z, width = 5, height = 1.35, bright = false) {
     const canvas = document.createElement('canvas');
@@ -178,9 +188,10 @@ export function createLobbyArt(scene) {
     art.add(mesh);
     return mesh;
   }
-  plaque(['PGE DIGITAL', 'RECEPÇÃO INTELIGENTE'], -8.5, 5.2, 12.5, 6.15);
-  plaque(['LEVI / TREINAMENTO', 'ESCOLHA O SEU CAMINHO'], 7.7, 5.35, 17.3, 6.1);
-  plaque(['CENTRAL DE DADOS', 'ARQUIVO E LOGÍSTICA'], -7.4, 8.2, -20.45, 6.15);
+  // One small architectural identifier instead of three gigantic floating
+  // signboards, previously overlapping the old POC labels.
+  cube(3.55, 0.95, 0.13, -8.5, 3.25, 9.12, pale);
+  plaque(['PGE DIGITAL', 'RECEPÇÃO'], -8.5, 3.25, 9.22, 3.36, 0.85, true);
 
   // Indoor planters with authored silhouettes, not repeated identical spheres.
   function tree(x, z, height = 2.45, seed = 0) {
@@ -188,6 +199,7 @@ export function createLobbyArt(scene) {
     holder.position.set(x, 0, z);
     art.add(holder);
     cyl(0.58, 0.52, 0.65, x, 0.46, z, navy, 14);
+    solid('planter-' + seed, x, z, 1.16, 1.16, 0, 3.4);
     cyl(0.52, 0.52, 0.07, x, 0.815, z, soil, 14);
     cyl(0.095, 0.16, height, x, 0.85 + height / 2, z, walnut, 10);
     for (let i = 0; i < 7; i++) {
@@ -205,6 +217,8 @@ export function createLobbyArt(scene) {
 
   // Small furniture groups sit outside gameplay routes.
   function bench(x, z, yaw = 0) {
+    const sideways = Math.abs(Math.sin(yaw)) > 0.7;
+    solid('bench-' + x + '-' + z, x, z, sideways ? 1 : 2.25, sideways ? 2.25 : 1, 0.0, 1.22);
     const group = new THREE.Group();
     group.position.set(x, 0, z);
     group.rotation.y = yaw;
@@ -226,6 +240,7 @@ export function createLobbyArt(scene) {
     const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.58, 3), mint);
     arrow.rotation.x = Math.PI / 2;
     arrow.rotation.z = -Math.PI / 2;
+    arrow.scale.setScalar(0.54);
     arrow.position.set(x, 0.178, z);
     art.add(arrow);
     arrows.push(arrow);
@@ -271,5 +286,15 @@ export function createLobbyArt(scene) {
     const pulse = 0.18 + 0.08 * Math.sin(t * 2);
     mint.emissiveIntensity = pulse;
   }
-  return { update, setReceptionSolved };
+  function getWalkableHeight(x, z, footY, lowerFloor) {
+    let highest = lowerFloor;
+    for (const top of walkable) {
+      if (Math.abs(x - top.x) <= top.halfX && Math.abs(z - top.z) <= top.halfZ &&
+          top.height <= footY + 0.2 && (highest === null || top.height > highest)) {
+        highest = top.height;
+      }
+    }
+    return highest;
+  }
+  return { update, setReceptionSolved, colliders, getWalkableHeight };
 }

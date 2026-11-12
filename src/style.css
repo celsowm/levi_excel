@@ -204,3 +204,8 @@ kbd { display: inline-block; border: 1px solid #ffffff48; border-bottom-width: 3
 .hud { filter: drop-shadow(0 12px 24px rgba(10, 30, 35, 0.12)); }
 .waypoint { letter-spacing: 0.03em; }
 #dash-ready { font-variant-numeric: tabular-nums; }
+
+/* V0.4: keep the controls discoverable via H, without a permanent debug strip. */
+.controls-help.collapsed { padding: 6px 10px; gap: 0; background: #12313ecf; }
+.controls-help.collapsed span:not(#dash-ready) { display: none; }
+.controls-help.collapsed #dash-ready { display: inline; font-size: 10px; }

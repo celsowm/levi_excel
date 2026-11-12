@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { boxCollider } from './collisions.js';
 
 // A small authored action route inside the existing lobby. This is v2's first
 // playable traversal slice, not a replacement for the later art-directed scene.
@@ -13,6 +14,7 @@ export function createActionCourse(scene) {
   const brass = new THREE.MeshStandardMaterial({ color: 0x9a7956, metalness: 0.7, roughness: 0.3 });
   const group = new THREE.Group();
   scene.add(group);
+  const colliders = [];
   function block(w, h, d, x, y, z, material, parent = group) {
     const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(0.08, w / 6, h / 6, d / 6)), material);
     mesh.position.set(x, y, z);
@@ -96,6 +98,13 @@ export function createActionCourse(scene) {
     }
     surface.holder = holder;
     surface.top = surface.y + 0.06;
+    // The support and platform deck are gameplay solids. Collide horizontally
+    // when Levi is beside/below them, but allow landing on their upper face.
+    colliders.push(boxCollider('support-' + surface.z, surface.x, surface.z,
+      0.53, 0.53, 0, surface.y - 0.15));
+    surface.deckCollider = boxCollider('deck-' + surface.z, surface.x, surface.z,
+      surface.w, surface.d, surface.top - 0.27, surface.top + 0.05);
+    colliders.push(surface.deckCollider);
   }
   const finish = ring(1.05, 7.1, surfaces[3].y + 0.16, 4.8, gold);
   const drone = new THREE.Group();
@@ -154,6 +163,8 @@ export function createActionCourse(scene) {
     for (const p of surfaces) {
       p.top = p.y + 0.06 + Math.sin(t * 1.5 + p.phase) * p.motion;
       p.holder.position.y = p.top - 0.06;
+      p.deckCollider.minY = p.top - 0.27;
+      p.deckCollider.maxY = p.top + 0.05;
     }
     drone.position.set(9.2 + Math.sin(t * 1.25) * 0.7, 3.5 + Math.sin(t * 2) * 0.14, 8.8);
     drone.rotation.y = t * 0.7;
@@ -166,5 +177,5 @@ export function createActionCourse(scene) {
     padRing.rotation.z = t * 0.65;
     finish.rotation.z = -t * 0.7;
   }
-  return { update, getSurfaceHeight, collision, hazard, jumpPad, atFinish };
+  return { update, getSurfaceHeight, collision, hazard, jumpPad, atFinish, colliders };
 }

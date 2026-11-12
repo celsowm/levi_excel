@@ -1,6 +1,6 @@
-# LEVI — Operação Planilha · POC 0.3
+# LEVI — Operação Planilha · POC 0.4
 
-> **Roadmap v2:** o protótipo evoluiu para a POC 0.3; o redesign completo permanece em desenvolvimento. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
+> **Roadmap v2:** o protótipo evoluiu para a POC 0.4; o redesign completo permanece em desenvolvimento. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
 > Consulte [Game Design v2](docs/GAME_DESIGN_V2.md), [Trilha Excel](docs/EXCEL_CURRICULUM_V2.md), [World 01 / Vertical Slice](docs/VERTICAL_SLICE_V2.md) e [Plano técnico para Codex](docs/IMPLEMENTATION_PLAN_V2.md) e [Ação e Plataforma 3D](docs/ACTION_PLATFORM_V2.md).
 
 Jogo educativo de **ação e plataforma 3D** com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O saguão futurista tem plataformas, coletáveis e dois desafios: filtrar uma planilha para construir uma ponte e usar `SOMA` para ligar o elevador.
@@ -42,6 +42,7 @@ npm run preview   # prévia do build
 | Espaço (duas vezes) | Pular / salto duplo |
 | J ou X | Dash (recarrega após uso) |
 | Arrastar sobre o cenário | Orbitar a câmera |
+| H | Mostrar/ocultar dicas de controles |
 | Shift | Correr |
 | E | Interagir com terminais e elevador |
 | Esc | Fechar terminal |
@@ -76,3 +77,12 @@ Antes de chegar ao terminal de filtro, experimente atravessar a barreira digital
 - `.github/workflows/pages.yml`: build + deploy automático de `main` para GitHub Pages.
 
 Projeto experimental de aprendizagem e prototipagem. O avaliador de fórmulas é didático, não um motor completo do Microsoft Excel.
+
+### POC 0.4 — colisão e limpeza de cena
+- `src/collisions.js` contém volumes AABB com cápsula horizontal aproximada, varredura em passos curtos e deslizamento nas bordas; o dash não ignora mesas e pilares.
+- Os elementos da recepção, bancos, vasos, pilares, terminais, suportes de plataforma e porta do elevador possuem volumes físicos explícitos; o balcão pode receber pousos na superfície.
+- A câmera utiliza os mesmos volumes para encurtar o braço quando uma estrutura está no caminho.
+- Banners duplicados, letreiros gigantes e partículas quadradas sem função foram removidos. A iluminação foi suavizada e Levi aparece maior na câmera.
+- A colisão ainda é um **controlador customizado leve**, não um motor de física geral. Detecção de teto e superfícies curvas exigirá aprofundamento.
+
+O pipeline valida lógica e build; ainda é necessária avaliação visual e de feeling em Safari real.

@@ -16,11 +16,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(59, innerWidth / innerHeight, 0.1, 130);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 130);
 const world = createWorld(scene);
 const levi = createLevi(scene);
 const clock = new THREE.Clock();
@@ -39,7 +39,7 @@ let jumpQueued = false;
 let dashQueued = false;
 let interactQueued = false;
 let cameraYaw = 0;
-let cameraPitch = 0.47;
+let cameraPitch = 0.36;
 let orbitPointer = null;
 let elapsed = 0;
 let heldNear = null;
@@ -145,13 +145,14 @@ function updateInteraction() {
 function respawn() {
   if (game.reachedFarSide) player.position.set(0, 0.11, -11);
   else if (game.filterSolved) player.position.set(0, 0.11, 1);
-  else if (game.courseCheckpoint) player.position.set(6.2, 0.11, 7.1);
+  else if (game.courseCheckpoint) player.position.set(7.65, 0.11, 16.85);
   else player.position.set(0, 0.11, 15);
   player.vy = 0;
   player.velocity.set(0, 0, 0);
   Object.assign(traversal, createTraversal());
   player.grounded = true;
-  toast('Oops! Levi voltou ao último ponto seguro.', 2400);
+  levi.root.position.copy(player.position);
+  toast('Levi voltou ao checkpoint. Seu progresso continua salvo nesta partida.', 2400);
 }
 function collectCubes() {
   for (const cube of world.collectibles) {
@@ -200,14 +201,20 @@ function movePlayer(dt) {
     player.velocity.set(0, 0, 0);
   }
   const previous = player.position.clone();
-  const nextX = THREE.MathUtils.clamp(previous.x + player.velocity.x * dt, -13.4, 13.4);
-  const nextZ = THREE.MathUtils.clamp(previous.z + player.velocity.z * dt, -21.4, 19.5);
-  const collision = world.courseCollision(previous, { x: nextX, z: nextZ }, previous.y, dashing);
+  const requestedX = previous.x + player.velocity.x * dt;
+  const requestedZ = previous.z + player.velocity.z * dt;
+  const collision = world.courseCollision(previous, { x: requestedX, z: requestedZ }, previous.y, dashing);
   if (collision === 'blocked') {
     player.velocity.set(0, 0, 0);
   } else {
-    player.position.x = nextX;
-    player.position.z = nextZ;
+    // Swept capsule-vs-AABB collision: slides along desks, furniture, pillars,
+    // terminal shells, platform supports and the elevator door.
+    const resolved = world.resolvePlayerMove(previous,
+      player.velocity.x * dt, player.velocity.z * dt, previous.y);
+    player.position.x = resolved.x;
+    player.position.z = resolved.z;
+    if (resolved.hitX) player.velocity.x = 0;
+    if (resolved.hitZ) player.velocity.z = 0;
     if (collision === 'broken' && !game.barrierBroken) {
       game.barrierBroken = true;
       toast('BARREIRA ROMPIDA! O caminho está livre.', 3000);
@@ -241,7 +248,7 @@ function movePlayer(dt) {
     traversal.padCooldown = 1.0;
     if (!game.courseCheckpoint) toast('IMPULSO! Salte novamente no ar para alcançar as plataformas.', 3100);
   }
-  if (!game.courseCheckpoint && player.position.x > 6.1 && player.position.z < 13.4) {
+  if (!game.courseCheckpoint && player.position.x > 6.1 && player.position.z < 13.4 && player.position.y > 1.8) {
     game.courseCheckpoint = true;
     toast('CHECKPOINT! Use salto duplo e dash para avançar.', 2600);
   }
@@ -268,7 +275,7 @@ function movePlayer(dt) {
 }
 function updateCamera(dt) {
   const p = player.position;
-  const dist = innerWidth < 700 ? 10.6 : 9.7;
+  const dist = innerWidth < 700 ? 7.9 : 7.1;
   const horizontal = Math.cos(cameraPitch) * dist;
   const vertical = Math.sin(cameraPitch) * dist;
   cameraTarget.set(
@@ -276,9 +283,12 @@ function updateCamera(dt) {
     p.y + 1.45 + vertical,
     p.z + Math.cos(cameraYaw) * horizontal
   );
-  camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 7.5));
-  cameraAimTarget.set(p.x, p.y + 1.5, p.z);
-  cameraAim.lerp(cameraAimTarget, 1 - Math.exp(-dt * 9));
+  cameraAimTarget.set(p.x, p.y + 1.48, p.z);
+  // Trace the camera arm against the same solid props as the player.
+  const corrected = world.resolveCamera(cameraAimTarget, cameraTarget);
+  cameraTarget.set(corrected.x, corrected.y, corrected.z);
+  camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 10));
+  cameraAim.lerp(cameraAimTarget, 1 - Math.exp(-dt * 10));
   camera.lookAt(cameraAim);
 }
 function animate() {
@@ -301,6 +311,10 @@ function animate() {
 window.addEventListener('keydown', (event) => {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code) && !missions.isOpen() && !receptionMission.isOpen()) event.preventDefault();
   if (!game.started || missions.isOpen() || receptionMission.isOpen() || game.completed) return;
+  if (event.code === 'KeyH' && !event.repeat) {
+    $('#controls-help').classList.toggle('collapsed');
+    return;
+  }
   pressed.add(event.code);
   if (event.code === 'Space' && !event.repeat) jumpQueued = true;
   if ((event.code === 'KeyJ' || event.code === 'KeyX') && !event.repeat) dashQueued = true;
@@ -356,7 +370,8 @@ $('#start').addEventListener('click', () => {
   if (matchMedia('(pointer: coarse)').matches) $('#touch-controls').classList.remove('hidden');
   else $('#controls-help').classList.remove('hidden');
   setObjective();
-  toast('Comece na recepção à esquerda: encontre ATD-104. Explore com salto duplo e dash!', 6500);
+  toast('Encontre ATD-104 na recepção à esquerda. Dash: J/X · salto duplo: Espaço ×2 · ajuda: H.', 6500);
+  setTimeout(() => $('#controls-help').classList.add('collapsed'), 9000);
 });
 
 camera.position.set(0, 6.5, 24.5);
