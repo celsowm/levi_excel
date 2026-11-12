@@ -9,6 +9,14 @@ export function createLevi(scene) {
   const visual = new THREE.Group();
   root.add(visual);
   scene.add(root);
+  const dashPulse = new THREE.Mesh(
+    new THREE.TorusGeometry(0.75, 0.055, 8, 28),
+    new THREE.MeshBasicMaterial({ color: 0x81ffee, transparent: true, opacity: 0.65, depthWrite: false })
+  );
+  dashPulse.rotation.x = Math.PI / 2;
+  dashPulse.position.y = 0.45;
+  dashPulse.visible = false;
+  root.add(dashPulse);
 
   let mixer = null;
   let current = null;
@@ -62,8 +70,14 @@ export function createLevi(scene) {
     current = name;
   }
 
-  function update(dt, movementSpeed, jumping, boosted, victory) {
+  function update(dt, movementSpeed, jumping, boosted, victory, dashing = false) {
     if (mixer) mixer.update(dt);
+    visual.rotation.x = THREE.MathUtils.damp(visual.rotation.x, dashing ? -0.23 : 0, 11, dt);
+    dashPulse.visible = dashing;
+    if (dashing) {
+      dashPulse.rotation.z += dt * 12;
+      dashPulse.scale.setScalar(0.9 + 0.16 * Math.sin(performance.now() * 0.04));
+    }
     if (celebrationRemaining > 0) celebrationRemaining = Math.max(0, celebrationRemaining - dt);
     const desired = (victory || celebrationRemaining > 0) ? 'Comemorar'
       : jumping ? 'Pular' : movementSpeed > 0.12 ? 'Andar' : 'Parado';

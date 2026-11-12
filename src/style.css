@@ -189,3 +189,13 @@ kbd { display: inline-block; border: 1px solid #ffffff48; border-bottom-width: 3
   .touch-actions #touch-interact { width: 47px; height: 47px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+/* V2 ACTION PLATFORMING — compact ability status and touch dash. */
+#dash-ready { color: #b5ffe5; font-weight: 850; }
+#dash-ready.cooling { color: #ffdb93; }
+.touch-actions #touch-dash { background: #155e70e8; border: 2px solid #9affd4; color: #eefffb; font-size: 11px; }
+.touch-actions #touch-dash:active { background: #2a988c; }
+@media (max-width: 600px) {
+  .touch-actions #touch-dash { width: 60px; height: 60px; }
+  .touch-actions { padding-bottom: 16px; }
+}

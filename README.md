@@ -39,13 +39,18 @@ npm run preview   # prévia do build
 | Tecla | Ação |
 | --- | --- |
 | WASD ou setas | Mover |
-| Espaço | Pular |
+| Espaço (duas vezes) | Pular / salto duplo |
+| J ou X | Dash (recarrega após uso) |
+| Arrastar sobre o cenário | Orbitar a câmera |
 | Shift | Correr |
 | E | Interagir com terminais e elevador |
 | Esc | Fechar terminal |
 | R | Voltar ao checkpoint |
 
-No celular, use os controles na tela.
+No celular, use os controles na tela, incluindo o botão **DASH**, e arraste sobre o cenário para girar a câmera.
+
+### Experimento de ação/plataforma (v0.2)
+Antes de chegar ao terminal de filtro, experimente atravessar a barreira digital usando dash (J/X) ou salto duplo. À direita da entrada há um **circuito opcional** com plataforma de impulso, duas plataformas móveis, drone, checkpoint e anel de chegada. As missões de Excel da POC continuam disponíveis; este incremento valida a movimentação antes do redesign visual/pedagógico v2. O circuito usa colisão de superfície e obstáculo, ainda não é o controlador completo com física em cápsula previsto no plano.
 
 ## Missões
 

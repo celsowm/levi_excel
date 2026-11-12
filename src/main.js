@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createWorld } from './world.js';
 import { createLevi } from './character.js';
 import { readMovementInput, smoothVelocity } from './movement.js';
+import { TRAVERSAL, cameraRelativeMovement, createTraversal, jumpInput, advanceTimers, consumeJump, landed, startDash, isDashing } from './platforming.js';
 import { createMissionUI } from './missions.js';
 import './style.css';
 
@@ -21,16 +22,23 @@ const camera = new THREE.PerspectiveCamera(59, innerWidth / innerHeight, 0.1, 13
 const world = createWorld(scene);
 const levi = createLevi(scene);
 const clock = new THREE.Clock();
-const tempDir = new THREE.Vector3();
+const traversal = createTraversal();
+const courseFacing = new THREE.Vector3(0, 0, -1);
 const cameraTarget = new THREE.Vector3();
 const cameraAim = new THREE.Vector3();
 const cameraAimTarget = new THREE.Vector3();
 const player = { position: new THREE.Vector3(0, 0.11, 15), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
-const game = { started: false, completed: false, filterSolved: false, sumSolved: false, cubes: 0, reachedFarSide: false, toastTimeout: null };
+const game = { started: false, completed: false, filterSolved: false, sumSolved: false,
+  courseDone: false, courseCheckpoint: false, barrierBroken: false,
+  cubes: 0, reachedFarSide: false, toastTimeout: null };
 const pressed = new Set();
 const touch = new Set();
 let jumpQueued = false;
+let dashQueued = false;
 let interactQueued = false;
+let cameraYaw = 0;
+let cameraPitch = 0.47;
+let orbitPointer = null;
 let elapsed = 0;
 let heldNear = null;
 let ready = false;
@@ -45,9 +53,11 @@ function toast(message, duration = 3300) {
 function setObjective() {
   if (game.completed) return;
   if (!game.filterSolved) {
-    $('#objective').textContent = 'Encontre o terminal do filtro e libere a ponte.';
+    $('#objective').textContent = game.courseDone
+      ? 'Circuito concluído! Use o terminal do filtro para liberar a ponte.'
+      : 'Experimente dash, salto duplo e o circuito de plataforma antes do filtro.';
     $('#step').textContent = '01 / 03';
-    $('#waypoint span').textContent = 'TERMINAL DO FILTRO';
+    $('#waypoint span').textContent = game.courseDone ? 'TERMINAL DO FILTRO' : 'CIRCUITO DO LEVI →';
   } else if (!game.sumSolved) {
     $('#objective').textContent = 'Atravesse a ponte e restaure a energia do elevador.';
     $('#step').textContent = '02 / 03';
@@ -113,9 +123,13 @@ function updateInteraction() {
   }
 }
 function respawn() {
-  player.position.set(0, 0.11, game.reachedFarSide ? -11 : game.filterSolved ? 1 : 15);
+  if (game.reachedFarSide) player.position.set(0, 0.11, -11);
+  else if (game.filterSolved) player.position.set(0, 0.11, 1);
+  else if (game.courseCheckpoint) player.position.set(6.2, 0.11, 7.1);
+  else player.position.set(0, 0.11, 15);
   player.vy = 0;
   player.velocity.set(0, 0, 0);
+  Object.assign(traversal, createTraversal());
   player.grounded = true;
   toast('Oops! Levi voltou ao último ponto seguro.', 2400);
 }
@@ -135,58 +149,115 @@ function collectCubes() {
 }
 function movePlayer(dt) {
   const down = (key) => pressed.has(key) || touch.has(key);
-  const input = readMovementInput(down);
-  const hasInput = input.x !== 0 || input.z !== 0;
+  const keys = readMovementInput(down);
+  const move = cameraRelativeMovement(keys.x, keys.z, cameraYaw);
+  const hasInput = Math.hypot(move.x, move.z) > 0.01;
+  if (hasInput) courseFacing.set(move.x, 0, move.z);
   const boosted = down('ShiftLeft') || down('ShiftRight');
-  const topSpeed = player.speed * (boosted ? 1.45 : 1);
 
-  // Responsive acceleration on key-down and stronger braking on key-up.
-  // Keeps the movement smooth without the slippery "ice skating" feeling.
-  const response = hasInput ? 15 : 22;
-  player.velocity.x = smoothVelocity(player.velocity.x, input.x * topSpeed, dt, response);
-  player.velocity.z = smoothVelocity(player.velocity.z, input.z * topSpeed, dt, response);
-  if (!hasInput && Math.hypot(player.velocity.x, player.velocity.z) < 0.04) {
+  advanceTimers(traversal, dt, player.grounded);
+  if (jumpQueued) jumpInput(traversal);
+  jumpQueued = false;
+  if (dashQueued) {
+    const target = hasInput ? move : { x: courseFacing.x, z: courseFacing.z };
+    if (startDash(traversal, target.x, target.z)) toast('DASH! Atravesse a barreira rosa ou alcance uma plataforma.', 1700);
+  }
+  dashQueued = false;
+  const jumpingNow = consumeJump(traversal, player.grounded);
+  if (jumpingNow > 0) {
+    player.vy = jumpingNow;
+    player.grounded = false;
+  }
+
+  const dashing = isDashing(traversal);
+  const speed = player.speed * (boosted ? 1.45 : 1);
+  player.velocity.x = dashing ? traversal.dashX * TRAVERSAL.dashSpeed
+    : smoothVelocity(player.velocity.x, move.x * speed, dt, hasInput ? 15 : 22);
+  player.velocity.z = dashing ? traversal.dashZ * TRAVERSAL.dashSpeed
+    : smoothVelocity(player.velocity.z, move.z * speed, dt, hasInput ? 15 : 22);
+
+  if (!dashing && !hasInput && Math.hypot(player.velocity.x, player.velocity.z) < 0.04) {
     player.velocity.set(0, 0, 0);
   }
-
-  const movementSpeed = Math.hypot(player.velocity.x, player.velocity.z);
+  const previous = player.position.clone();
+  const nextX = THREE.MathUtils.clamp(previous.x + player.velocity.x * dt, -13.4, 13.4);
+  const nextZ = THREE.MathUtils.clamp(previous.z + player.velocity.z * dt, -21.4, 19.5);
+  const collision = world.courseCollision(previous, { x: nextX, z: nextZ }, previous.y, dashing);
+  if (collision === 'blocked') {
+    player.velocity.set(0, 0, 0);
+  } else {
+    player.position.x = nextX;
+    player.position.z = nextZ;
+    if (collision === 'broken' && !game.barrierBroken) {
+      game.barrierBroken = true;
+      toast('BARREIRA ROMPIDA! O caminho está livre.', 3000);
+    }
+  }
   levi.face(player.velocity, dt);
-  const nextX = THREE.MathUtils.clamp(player.position.x + player.velocity.x * dt, -13.4, 13.4);
-  const nextZ = THREE.MathUtils.clamp(player.position.z + player.velocity.z * dt, -21.4, 19.5);
-  if (nextX === -13.4 || nextX === 13.4) player.velocity.x = 0;
-  if (nextZ === -21.4 || nextZ === 19.5) player.velocity.z = 0;
-  player.position.x = nextX;
-  player.position.z = nextZ;
 
-  if (jumpQueued && player.grounded) {
-    player.vy = 9.4;
-    player.grounded = false;
-  }
-  jumpQueued = false;
-  const groundY = world.getGroundHeight(player.position.x, player.position.z, game.filterSolved);
-  if (!player.grounded || groundY == null) {
-    player.vy -= 23 * dt;
-    player.position.y += player.vy * dt;
-    player.grounded = false;
-  }
-  if (groundY !== null && player.position.y <= groundY && player.vy <= 0) {
-    player.position.y = groundY;
+  // Land on elevated platforms only if Levi's feet are high enough to reach
+  // the surface. Ground detection uses the last foot height to avoid teleporting
+  // from the floor onto platforms directly above the character.
+  const surface = world.getGroundHeight(player.position.x, player.position.z, game.filterSolved, previous.y);
+  if (player.grounded && surface !== null && Math.abs(surface - player.position.y) < 0.3) {
+    player.position.y = surface;
     player.vy = 0;
-    player.grounded = true;
+  } else {
+    player.grounded = false;
+    player.vy -= TRAVERSAL.gravity * dt;
+    player.position.y += player.vy * dt;
+    if (surface !== null && player.vy <= 0 && player.position.y <= surface && previous.y >= surface - 0.2) {
+      player.position.y = surface;
+      player.vy = 0;
+      player.grounded = true;
+      landed(traversal);
+    }
   }
-  if (game.filterSolved && player.position.z < -8.5 && groundY !== null) game.reachedFarSide = true;
+  if (player.grounded && world.courseJumpPad(player.position.x, player.position.z) && traversal.padCooldown === 0) {
+    player.vy = 12.6;
+    player.grounded = false;
+    traversal.jumps = 1;
+    traversal.coyote = 0;
+    traversal.padCooldown = 1.0;
+    if (!game.courseCheckpoint) toast('IMPULSO! Salte novamente no ar para alcançar as plataformas.', 3100);
+  }
+  if (!game.courseCheckpoint && player.position.x > 6.1 && player.position.z < 13.4) {
+    game.courseCheckpoint = true;
+    toast('CHECKPOINT! Use salto duplo e dash para avançar.', 2600);
+  }
+  if (!game.courseDone && world.courseFinish(player.position)) {
+    game.courseDone = true;
+    levi.play('Comemorar');
+    setObjective();
+    toast('CIRCUITO CONCLUÍDO! Agora pratique Excel no terminal do filtro.', 4700);
+  }
+  if (world.courseHazard(player.position, elapsed, dashing)) {
+    respawn();
+    return;
+  }
+  if (game.filterSolved && player.position.z < -8.5 && surface !== null) game.reachedFarSide = true;
   if (player.position.y < -11) respawn();
   levi.root.position.copy(player.position);
-  levi.update(dt, movementSpeed, !player.grounded, boosted, game.completed);
+  levi.update(dt, Math.hypot(player.velocity.x, player.velocity.z), !player.grounded, boosted, game.completed, dashing);
   collectCubes();
+  const readiness = $('#dash-ready');
+  if (readiness) {
+    readiness.textContent = traversal.cooldown > 0 ? `DASH ${traversal.cooldown.toFixed(1)}s` : 'DASH PRONTO';
+    readiness.classList.toggle('cooling', traversal.cooldown > 0);
+  }
 }
-
 function updateCamera(dt) {
   const p = player.position;
-  const fovDistance = innerWidth < 700 ? 10.0 : 9.0;
-  cameraTarget.set(p.x, p.y + (innerWidth < 700 ? 5.9 : 5.6), p.z + fovDistance);
+  const dist = innerWidth < 700 ? 10.6 : 9.7;
+  const horizontal = Math.cos(cameraPitch) * dist;
+  const vertical = Math.sin(cameraPitch) * dist;
+  cameraTarget.set(
+    p.x + Math.sin(cameraYaw) * horizontal,
+    p.y + 1.45 + vertical,
+    p.z + Math.cos(cameraYaw) * horizontal
+  );
   camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 7.5));
-  cameraAimTarget.set(p.x, p.y + 1.7, p.z - 2.3);
+  cameraAimTarget.set(p.x, p.y + 1.5, p.z);
   cameraAim.lerp(cameraAimTarget, 1 - Math.exp(-dt * 9));
   camera.lookAt(cameraAim);
 }
@@ -200,7 +271,7 @@ function animate() {
     if (interactQueued) interact();
     updateInteraction();
   } else if (game.started) {
-    levi.update(dt, false, false, false, game.completed);
+    levi.update(dt, 0, false, false, game.completed, false);
   }
   interactQueued = false;
   if (game.started) updateCamera(dt);
@@ -212,11 +283,32 @@ window.addEventListener('keydown', (event) => {
   if (!game.started || missions.isOpen() || game.completed) return;
   pressed.add(event.code);
   if (event.code === 'Space' && !event.repeat) jumpQueued = true;
+  if ((event.code === 'KeyJ' || event.code === 'KeyX') && !event.repeat) dashQueued = true;
   if (event.code === 'KeyE' && !event.repeat) interactQueued = true;
   if (event.code === 'KeyR' && !event.repeat) respawn();
 });
 window.addEventListener('keyup', (event) => pressed.delete(event.code));
-window.addEventListener('blur', () => pressed.clear());
+window.addEventListener('blur', () => { pressed.clear(); orbitPointer = null; });
+canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+canvas.addEventListener('pointerdown', (event) => {
+  if (isBlocked() || (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 2)) return;
+  orbitPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  canvas.setPointerCapture(event.pointerId);
+});
+canvas.addEventListener('pointermove', (event) => {
+  if (!orbitPointer || orbitPointer.id !== event.pointerId || isBlocked()) return;
+  const dx = event.clientX - orbitPointer.x;
+  const dy = event.clientY - orbitPointer.y;
+  cameraYaw -= dx * 0.006;
+  cameraPitch = THREE.MathUtils.clamp(cameraPitch + dy * 0.004, 0.16, 1.04);
+  orbitPointer.x = event.clientX;
+  orbitPointer.y = event.clientY;
+});
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  canvas.addEventListener(type, (event) => {
+    if (orbitPointer?.id === event.pointerId) orbitPointer = null;
+  });
+}
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
@@ -232,6 +324,7 @@ for (const button of document.querySelectorAll('[data-control]')) {
   button.addEventListener('lostpointercapture', () => touch.delete(key));
 }
 $('#touch-jump').addEventListener('pointerdown', (event) => { event.preventDefault(); jumpQueued = true; });
+$('#touch-dash').addEventListener('pointerdown', (event) => { event.preventDefault(); dashQueued = true; });
 $('#touch-interact').addEventListener('pointerdown', (event) => { event.preventDefault(); interactQueued = true; });
 $('#restart').addEventListener('click', () => window.location.reload());
 $('#start').addEventListener('click', () => {
@@ -243,12 +336,12 @@ $('#start').addEventListener('click', () => {
   if (matchMedia('(pointer: coarse)').matches) $('#touch-controls').classList.remove('hidden');
   else $('#controls-help').classList.remove('hidden');
   setObjective();
-  toast('Bem-vindo, operador! Encontre o terminal luminoso próximo ao vão.', 5000);
+  toast('Comece explorando! Espaço: salto duplo · J ou X: dash · arraste para girar a câmera.', 6500);
 });
 
 camera.position.set(0, 6.5, 24.5);
 camera.lookAt(0, 2, 10);
-cameraAim.set(player.position.x, player.position.y + 1.7, player.position.z - 2.3);
+cameraAim.set(player.position.x, player.position.y + 1.5, player.position.z);
 levi.root.position.copy(player.position);
 levi.ready.then(() => {
   ready = true;

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createActionCourse } from './action-course.js';
 
 const C = {
   navy: 0x071a2d, deep: 0x102b46, steel: 0x263e59, light: 0xb9d9eb,
@@ -222,8 +223,10 @@ export function createWorld(scene) {
     dust.push({ mesh: p, y, phase: i * 0.89 });
   }
 
+  const actionCourse = createActionCourse(scene);
   let bridgeProgress = 0;
   function update(t, dt, bridgeUnlocked, elevatorUnlocked) {
+    actionCourse.update(t);
     if (bridgeUnlocked) {
       bridge.visible = true;
       bridgeProgress = Math.min(1, bridgeProgress + dt * 2.0);
@@ -257,15 +260,20 @@ export function createWorld(scene) {
     filterTerminal.ring.rotation.z = Math.sin(t * 0.6) * 0.06;
     sumTerminal.ring.rotation.z = Math.sin(t * 0.6 + 2) * 0.06;
   }
-  function getGroundHeight(x, z, bridgeUnlocked) {
+  function getGroundHeight(x, z, bridgeUnlocked, footY = Infinity) {
     if (Math.abs(x) > 13.7) return null;
-    if (z >= -2 && z <= 20) return 0.11;
-    if (z >= -22 && z <= -8) return 0.11;
-    if (bridgeUnlocked && Math.abs(x) <= 2.1 && z >= -8 && z <= -2) return 0.11;
-    return null;
+    let floor = null;
+    if (z >= -2 && z <= 20) floor = 0.11;
+    if (z >= -22 && z <= -8) floor = 0.11;
+    if (bridgeUnlocked && Math.abs(x) <= 2.1 && z >= -8 && z <= -2) floor = 0.11;
+    return actionCourse.getSurfaceHeight(x, z, footY, floor);
   }
   return {
     filterTerminal, sumTerminal, elevator: { x: 0, z: -20.55 },
     collectibles, update, getGroundHeight,
+    courseCollision: actionCourse.collision,
+    courseHazard: actionCourse.hazard,
+    courseJumpPad: actionCourse.jumpPad,
+    courseFinish: actionCourse.atFinish,
   };
 }
