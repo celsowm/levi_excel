@@ -1,6 +1,6 @@
-# LEVI — Operação Planilha · POC 0.1
+# LEVI — Operação Planilha · POC 0.3
 
-> **Roadmap v2:** o protótipo público ainda é a POC 0.1. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
+> **Roadmap v2:** o protótipo evoluiu para a POC 0.3; o redesign completo permanece em desenvolvimento. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
 > Consulte [Game Design v2](docs/GAME_DESIGN_V2.md), [Trilha Excel](docs/EXCEL_CURRICULUM_V2.md), [World 01 / Vertical Slice](docs/VERTICAL_SLICE_V2.md) e [Plano técnico para Codex](docs/IMPLEMENTATION_PLAN_V2.md) e [Ação e Plataforma 3D](docs/ACTION_PLATFORM_V2.md).
 
 Jogo educativo de **ação e plataforma 3D** com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O saguão futurista tem plataformas, coletáveis e dois desafios: filtrar uma planilha para construir uma ponte e usar `SOMA` para ligar o elevador.
@@ -59,6 +59,7 @@ Antes de chegar ao terminal de filtro, experimente atravessar a barreira digital
 
 ## Missões
 
+0. Vá até o balcão da recepção e encontre o registro **ATD-104** na coluna A. Aprenda linhas e colunas sem fórmulas.
 1. Encontre o terminal **Filtro** e mostre apenas processos com prazos inferiores a cinco dias.
 2. Atravesse a ponte que foi ativada.
 3. No terminal **Soma**, escreva uma fórmula como `=SOMA(C2:C5)` para recuperar energia.

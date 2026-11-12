@@ -239,12 +239,37 @@ export function createLobbyArt(scene) {
   }
   cube(7.1, 0.37, 0.63, 0, 7.12, -20.81, pale);
 
+  // A helper courier physically guides the player after the first literacy task.
+  const courier = new THREE.Group();
+  const courierBody = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 12), pale);
+  const courierVisor = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), navy);
+  courierVisor.scale.set(1.3, 0.8, 0.3);
+  courierVisor.position.z = -0.28;
+  const courierLamp = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 8), mint);
+  courierLamp.position.y = 0.28;
+  courier.add(courierBody, courierVisor, courierLamp);
+  art.add(courier);
+  const courierPath = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-8.4, 2.3, 10.6),
+    new THREE.Vector3(-6.5, 2.6, 8.1),
+    new THREE.Vector3(-2.9, 2.4, 4.6),
+    new THREE.Vector3(0, 2.3, 1.7)
+  ]);
+  let receptionSolved = false, courierProgress = 0, lastTime = 0;
+  function setReceptionSolved(value) { receptionSolved = Boolean(value); }
+
   // Floating architecture accents only: no flickering, no excessive bloom.
   function update(t) {
+    const dt = Math.min(0.05, Math.max(0, t - lastTime));
+    lastTime = t;
+    if (receptionSolved) courierProgress = Math.min(1, courierProgress + dt * 0.20);
+    const pos = courierPath.getPoint(courierProgress);
+    courier.position.set(pos.x, pos.y + Math.sin(t * 2) * 0.08, pos.z);
+    courier.rotation.y = -courierProgress * 0.8;
     rings.rotation.y = Math.sin(t * 0.13) * 0.08;
     rings.rotation.z = Math.sin(t * 0.22) * 0.035;
     const pulse = 0.18 + 0.08 * Math.sin(t * 2);
     mint.emissiveIntensity = pulse;
   }
-  return { update };
+  return { update, setReceptionSolved };
 }

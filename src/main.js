@@ -4,6 +4,8 @@ import { createLevi } from './character.js';
 import { readMovementInput, smoothVelocity } from './movement.js';
 import { TRAVERSAL, cameraRelativeMovement, createTraversal, jumpInput, advanceTimers, consumeJump, landed, startDash, isDashing } from './platforming.js';
 import { createMissionUI } from './missions.js';
+import { createReceptionMissionUI } from './reception-mission.js';
+import './reception.css';
 import './style.css';
 
 const $ = (selector) => document.querySelector(selector);
@@ -28,7 +30,7 @@ const cameraTarget = new THREE.Vector3();
 const cameraAim = new THREE.Vector3();
 const cameraAimTarget = new THREE.Vector3();
 const player = { position: new THREE.Vector3(0, 0.11, 15), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
-const game = { started: false, completed: false, filterSolved: false, sumSolved: false,
+const game = { started: false, completed: false, receptionSolved: false, filterSolved: false, sumSolved: false,
   courseDone: false, courseCheckpoint: false, barrierBroken: false,
   cubes: 0, reachedFarSide: false, toastTimeout: null };
 const pressed = new Set();
@@ -52,7 +54,11 @@ function toast(message, duration = 3300) {
 }
 function setObjective() {
   if (game.completed) return;
-  if (!game.filterSolved) {
+  if (!game.receptionSolved) {
+    $('#objective').textContent = 'Ajude o drone no balcão: encontre o registro ATD-104.';
+    $('#step').textContent = '00 / 03';
+    $('#waypoint span').textContent = 'BALCÃO DE RECEPÇÃO';
+  } else if (!game.filterSolved) {
     $('#objective').textContent = game.courseDone
       ? 'Circuito concluído! Use o terminal do filtro para liberar a ponte.'
       : 'Experimente dash, salto duplo e o circuito de plataforma antes do filtro.';
@@ -87,7 +93,19 @@ const missions = createMissionUI({
   },
 });
 
-function isBlocked() { return !game.started || game.completed || missions.isOpen(); }
+const receptionMission = createReceptionMissionUI({
+  onSolved() {
+    game.receptionSolved = true;
+    world.setReceptionSolved(true);
+    setObjective();
+    levi.play('Comemorar');
+    toast('MUITO BEM! Você aprendeu linhas, colunas e registros. Siga o drone!', 5200);
+  },
+  onClosed() { pressed.clear(); touch.clear(); },
+});
+function isBlocked() {
+  return !game.started || game.completed || missions.isOpen() || receptionMission.isOpen();
+}
 function complete() {
   if (game.completed) return;
   game.completed = true;
@@ -100,7 +118,8 @@ function complete() {
 }
 function interact() {
   if (isBlocked()) return;
-  if (heldNear === 'filter' && !game.filterSolved) missions.open('filter');
+  if (heldNear === 'reception' && !game.receptionSolved) receptionMission.open();
+  else if (heldNear === 'filter' && game.receptionSolved && !game.filterSolved) missions.open('filter');
   else if (heldNear === 'sum' && game.filterSolved && !game.sumSolved) missions.open('sum');
   else if (heldNear === 'elevator' && game.sumSolved) complete();
 }
@@ -108,12 +127,13 @@ function updateInteraction() {
   heldNear = null;
   const p = player.position;
   const distance = (obj) => Math.hypot(p.x - obj.x, p.z - obj.z);
-  if (!game.filterSolved && distance(world.filterTerminal) < 3.1) heldNear = 'filter';
+  if (!game.receptionSolved && distance(world.receptionTerminal) < 4.1) heldNear = 'reception';
+  else if (game.receptionSolved && !game.filterSolved && distance(world.filterTerminal) < 3.1) heldNear = 'filter';
   else if (game.filterSolved && !game.sumSolved && distance(world.sumTerminal) < 3.1) heldNear = 'sum';
   else if (game.sumSolved && distance(world.elevator) < 3.7) heldNear = 'elevator';
   const prompt = $('#prompt');
   if (heldNear && !isBlocked()) {
-    const labels = { filter: 'ABRIR TERMINAL DE FILTRO', sum: 'ABRIR TERMINAL SOMA', elevator: 'ENTRAR NO ELEVADOR' };
+    const labels = { reception: 'AJUDAR DRONE · LOCALIZAR REGISTRO', filter: 'ABRIR TERMINAL DE FILTRO', sum: 'ABRIR TERMINAL SOMA', elevator: 'ENTRAR NO ELEVADOR' };
     $('#prompt-text').textContent = labels[heldNear];
     prompt.classList.remove('hidden');
     $('#touch-interact').classList.add('available');
@@ -279,8 +299,8 @@ function animate() {
 }
 
 window.addEventListener('keydown', (event) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code) && !missions.isOpen()) event.preventDefault();
-  if (!game.started || missions.isOpen() || game.completed) return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code) && !missions.isOpen() && !receptionMission.isOpen()) event.preventDefault();
+  if (!game.started || missions.isOpen() || receptionMission.isOpen() || game.completed) return;
   pressed.add(event.code);
   if (event.code === 'Space' && !event.repeat) jumpQueued = true;
   if ((event.code === 'KeyJ' || event.code === 'KeyX') && !event.repeat) dashQueued = true;
@@ -336,7 +356,7 @@ $('#start').addEventListener('click', () => {
   if (matchMedia('(pointer: coarse)').matches) $('#touch-controls').classList.remove('hidden');
   else $('#controls-help').classList.remove('hidden');
   setObjective();
-  toast('Comece explorando! Espaço: salto duplo · J ou X: dash · arraste para girar a câmera.', 6500);
+  toast('Comece na recepção à esquerda: encontre ATD-104. Explore com salto duplo e dash!', 6500);
 });
 
 camera.position.set(0, 6.5, 24.5);

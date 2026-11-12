@@ -27,12 +27,12 @@
         <button id="start" class="primary-btn">INICIAR MISSÃO <span>↗</span></button>
         <div class="intro-controls">WASD: mover &nbsp;•&nbsp; Espaço (2×): salto duplo &nbsp;•&nbsp; J/X: dash &nbsp;•&nbsp; Arraste: câmera &nbsp;•&nbsp; E: interagir</div>
       </div>
-      <span class="intro-version">POC 0.1 · REAL-TIME 3D</span>
+      <span class="intro-version">POC 0.3 · AVENTURA + EXCEL</span>
     </div>
 
     <header id="hud" class="hud hidden">
       <div class="hud-brand"><span class="mini-logo">L</span><div><strong>LEVI<span class="brand-dot">.</span></strong><small>OPERAÇÃO PLANILHA</small></div></div>
-      <div class="hud-mission"><span class="hud-tag">MISSÃO ATIVA</span><p id="objective">Encontre o terminal do filtro.</p></div>
+      <div class="hud-mission"><span class="hud-tag">MISSÃO ATIVA</span><p id="objective">Ajude o drone da recepção.</p></div>
       <div class="hud-right"><div class="resource"><span class="resource-icon">◆</span><strong id="cubes">0</strong><small>/ 8</small></div><div id="step">01 / 03</div></div>
     </header>
 
@@ -45,6 +45,31 @@
       <div class="dpad"><button type="button" data-control="up" class="up" aria-label="Frente">▲</button><button type="button" data-control="left" class="left" aria-label="Esquerda">◀</button><button type="button" data-control="down" class="down" aria-label="Trás">▼</button><button type="button" data-control="right" class="right" aria-label="Direita">▶</button></div>
       <div class="touch-actions"><button id="touch-interact" aria-label="Interagir">E</button><button id="touch-dash" aria-label="Dash">DASH</button><button id="touch-jump" aria-label="Pular">PULAR</button></div>
     </div>
+
+    <section id="reception-dialog" class="rx-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reception-title">
+      <div id="reception-backdrop" class="rx-backdrop"></div>
+      <div class="rx-panel">
+        <div class="rx-sidebar">
+          <span class="rx-stage">MISSÃO 00 · PRIMEIRO CONTATO</span>
+          <div class="rx-icon" aria-hidden="true">⌗</div>
+          <h2 id="reception-title">Uma entrega para o Levi</h2>
+          <p>Um drone precisa levar um documento ao setor correto. O código é <strong>ATD-104</strong>.</p>
+          <p>Encontre o registro usando a <strong>coluna A</strong>, onde ficam os identificadores.</p>
+          <div class="rx-fact"><strong>LINHAS</strong> representam registros. <strong>COLUNAS</strong> guardam tipos de informação.</div>
+        </div>
+        <div class="rx-workbook">
+          <div class="rx-topbar"><span>RECEPÇÃO / ATENDIMENTOS</span><button id="reception-close" type="button" aria-label="Fechar missão">×</button></div>
+          <div class="rx-file"><strong>atendimentos.xlsx</strong><small>Localize o registro ATD-104 · selecione uma linha</small></div>
+          <table class="rx-table">
+            <thead><tr class="rx-letters"><th>#</th><th>A</th><th>B</th><th>C</th></tr><tr><th>1</th><th>ID</th><th>SETOR</th><th>ANDAR</th></tr></thead>
+            <tbody id="reception-rows"></tbody>
+          </table>
+          <p id="reception-hint-text" class="rx-hint">Cada coluna representa um tipo de informação.</p>
+          <p id="reception-feedback" class="rx-feedback" role="status">Encontre ATD-104 na coluna A.</p>
+          <div class="rx-actions"><button id="reception-hint" class="rx-hint-btn" type="button">QUERO UMA DICA</button><span>SEM TEMPO LIMITE · SEM PUNIÇÕES</span></div>
+        </div>
+      </div>
+    </section>
 
     <section id="mission-dialog" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mission-title">
       <div class="modal-backdrop"></div>
@@ -70,7 +95,7 @@
       </div>
     </section>
 
-    <section id="completion" class="completion hidden" role="dialog" aria-modal="true" aria-labelledby="victory-title"><div class="completion-bg"></div><div class="completion-card"><span class="victory-eyebrow">✦ MISSÃO CONCLUÍDA ✦</span><h2 id="victory-title">SISTEMA<br><em>RESTAURADO!</em></h2><p>Você ajudou o Levi a religar a Central de Dados usando habilidades de Excel de verdade.</p><div class="skills"><span>✓ FILTRAGEM DE DADOS</span><span>✓ FÓRMULA SOMA</span><span id="victory-cubes">◆ 0/8 CUBOS</span></div><button class="primary-btn" id="restart">JOGAR NOVAMENTE ↻</button></div></section>
+    <section id="completion" class="completion hidden" role="dialog" aria-modal="true" aria-labelledby="victory-title"><div class="completion-bg"></div><div class="completion-card"><span class="victory-eyebrow">✦ MISSÃO CONCLUÍDA ✦</span><h2 id="victory-title">SISTEMA<br><em>RESTAURADO!</em></h2><p>Você ajudou o Levi a religar a Central de Dados usando habilidades de Excel de verdade.</p><div class="skills"><span>✓ LINHAS E COLUNAS</span><span>✓ FILTRAGEM DE DADOS</span><span>✓ FÓRMULA SOMA</span><span id="victory-cubes">◆ 0/8 CUBOS</span></div><button class="primary-btn" id="restart">JOGAR NOVAMENTE ↻</button></div></section>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

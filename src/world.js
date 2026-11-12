@@ -272,6 +272,8 @@ export function createWorld(scene) {
     return actionCourse.getSurfaceHeight(x, z, footY, floor);
   }
   return {
+    receptionTerminal: { x: -8.4, z: 10 },
+    setReceptionSolved: lobbyArt.setReceptionSolved,
     filterTerminal, sumTerminal, elevator: { x: 0, z: -20.55 },
     collectibles, update, getGroundHeight,
     courseCollision: actionCourse.collision,
