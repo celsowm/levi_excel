@@ -10,6 +10,7 @@ import { createPlayer } from './player.js';
 import { createSheetPanel } from './sheet-ui.js';
 import { MISSIONS, STAGES, stageById } from './campaign.js';
 import { createRun, createSave, medal, formatTime } from './progress.js';
+import { createMusic } from './music.js';
 import './style.css';
 import './sheet-ui.css';
 
@@ -27,6 +28,9 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 160);
 setupScene(scene, renderer);
 const levi = createLevi(scene);
+const music = createMusic();
+// Music sits under the sheet and the pause menu instead of stopping.
+const MUSIC_DUCK = { sheet: 0.45, paused: 0.3, results: 0.6, loading: 0.5 };
 // Multisampled HDR target keeps edges clean while light strips feed the bloom.
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight,
   { type: THREE.HalfFloatType, samples: 4 }));
@@ -110,6 +114,7 @@ async function startStage(id, { timeTrial = false } = {}) {
   $('#loading-detail').textContent = `Fase ${id} · ${stageById(id).name}`;
   game.stage?.dispose();
   game.stage = null;
+  music.play(id);
   const stage = await loadStage(id, scene, renderer);
   const run = createRun(id, { timeTrial });
   run.flags.goalsDone = run.done;
@@ -186,6 +191,7 @@ function finishStage() {
 
 function showMenu() {
   game.mode = 'menu';
+  music.play('menu');
   panel.close();
   renderStageSelect();
   for (const id of ['#results', '#pause', '#hud', '#marker', '#prompt', '#touch-controls', '#controls-help']) $(id).classList.add('hidden');
@@ -397,6 +403,8 @@ function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
   elapsed += dt;
+  music.duck(MUSIC_DUCK[game.mode] ?? 1);
+  music.update(dt);
   const { stage, run } = game;
   if (stage && run) {
     const active = game.mode === 'playing' || game.mode === 'sheet';
@@ -420,7 +428,14 @@ function animate() {
 
 // ------------------------------------------------------------------ input
 const typing = () => game.mode !== 'playing' && game.mode !== 'paused';
+function toggleMusic() {
+  const muted = music.toggleMute();
+  $('#music-toggle').textContent = muted ? 'MÚSICA: DESLIGADA' : 'MÚSICA: LIGADA';
+  toast(muted ? 'Música desligada (M)' : 'Música ligada (M)', 1400);
+}
+
 window.addEventListener('keydown', (event) => {
+  if (event.code === 'KeyM' && !event.repeat && game.mode !== 'sheet') { toggleMusic(); return; }
   if (game.mode === 'sheet' || game.mode === 'menu' || game.mode === 'loading') return;
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
   if (event.code === 'Escape' || event.code === 'KeyP') { setPaused(game.mode === 'playing'); return; }
@@ -482,6 +497,8 @@ $('#resume').addEventListener('click', () => setPaused(false));
 $('#to-checkpoint').addEventListener('click', () => { setPaused(false); respawn(); });
 $('#restart-stage').addEventListener('click', () => startStage(game.run.stage.id, { timeTrial: game.run.timeTrial }).catch(loadFailed));
 $('#to-menu').addEventListener('click', showMenu);
+$('#music-toggle').textContent = music.muted ? 'MÚSICA: DESLIGADA' : 'MÚSICA: LIGADA';
+$('#music-toggle').addEventListener('click', toggleMusic);
 $('#results-menu').addEventListener('click', showMenu);
 $('#results-next').addEventListener('click', () => startStage(game.run.stage.next).catch(loadFailed));
 $('#results-trial').addEventListener('click', () => startStage(game.run.stage.id, { timeTrial: true }).catch(loadFailed));
@@ -500,5 +517,5 @@ levi.ready.then(() => {
   $('#loading').classList.add('hidden');
   showMenu();
 }).catch(loadFailed);
-window.__levi = { game, startStage, camera };
+window.__levi = { game, startStage, camera, music };
 animate();

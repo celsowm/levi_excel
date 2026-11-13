@@ -47,11 +47,14 @@ npm run preview   # prévia do build
 | E | Abrir terminal |
 | Esc | Pausa / fechar terminal |
 | R | Voltar ao checkpoint |
+| M | Ligar/desligar a música (também no menu de pausa) |
 
 No celular, use os controles na tela, incluindo o botão **DASH**, e arraste sobre o cenário para girar a câmera.
 
 ### World 01 em três fases, planilha viva (v0.6)
 O World 01 agora tem três fases maiores: **1-1 Jardim e Recepção**, **1-2 Galeria da Fila** e **1-3 Átrio de Dados**. Cada terminal abre um painel lateral com uma planilha de verdade, e cada alteração mexe no mundo ao vivo: a célula C4 sobe a passarela, classificar move os elevadores, o filtro liga as plataformas de dados e `=SOMA(C2:C5)` liga o ventilador. Há contra o relógio com medalhas, cubos, segredos e drones-sentinela. Detalhes em [docs/WORLD01_STAGES_V4.md](docs/WORLD01_STAGES_V4.md).
+
+A trilha sonora (`public/audio/`: menu e uma faixa instrumental por fase) foi gerada com o modo de música do Gemini e normalizada com ffmpeg (MP3 96 kbps, −18 LUFS). `src/music.js` faz a troca suave entre faixas e abaixa o volume na planilha e na pausa.
 
 As fases são modeladas no **Blender** (`art/blender/stage_1_*.py` sobre o kit `levi_kit.py`), com bake de iluminação no Cycles. Convenções em [docs/BLENDER_PIPELINE_V3.md](docs/BLENDER_PIPELINE_V3.md).
 
