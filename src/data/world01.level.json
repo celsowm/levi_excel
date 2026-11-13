@@ -180,6 +180,16 @@
    "maxY": 6.3
   },
   {
+   "id": "sign-reception",
+   "x": -8.6,
+   "z": 10.5,
+   "width": 3.7,
+   "depth": 0.3,
+   "minY": 2.8,
+   "maxY": 3.85,
+   "cameraOnly": true
+  },
+  {
    "id": "terminal-FILTRO",
    "x": 0.0,
    "z": 1.45,
@@ -288,6 +298,26 @@
    "maxY": 2.25
   },
   {
+   "id": "sign-circuito",
+   "x": 8.2,
+   "z": 19.0,
+   "width": 4.9,
+   "depth": 0.3,
+   "minY": 3.85,
+   "maxY": 4.95,
+   "cameraOnly": true
+  },
+  {
+   "id": "sign-corredor",
+   "x": 0.0,
+   "z": 7.5,
+   "width": 4.9,
+   "depth": 0.3,
+   "minY": 3.85,
+   "maxY": 4.95,
+   "cameraOnly": true
+  },
+  {
    "id": "planter-4",
    "x": -12.3,
    "z": -6.0,
@@ -322,36 +352,6 @@
    "depth": 1.0,
    "minY": 0,
    "maxY": 3.0
-  },
-  {
-   "id": "sign-reception",
-   "x": -8.6,
-   "z": 10.5,
-   "width": 3.7,
-   "depth": 0.3,
-   "minY": 2.8,
-   "maxY": 3.85,
-   "cameraOnly": true
-  },
-  {
-   "id": "sign-circuito",
-   "x": 8.2,
-   "z": 19.0,
-   "width": 4.9,
-   "depth": 0.3,
-   "minY": 3.85,
-   "maxY": 4.95,
-   "cameraOnly": true
-  },
-  {
-   "id": "sign-corredor",
-   "x": 0.0,
-   "z": 7.5,
-   "width": 4.9,
-   "depth": 0.3,
-   "minY": 3.85,
-   "maxY": 4.95,
-   "cameraOnly": true
   }
  ],
  "walkables": [
@@ -535,6 +535,6 @@
   "step": 1.0
  },
  "render": {
-  "lightMapScale": 2.8771
+  "lightMapScale": 2.8496
  }
 }
