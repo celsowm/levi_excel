@@ -36,7 +36,7 @@ def shell():
             box(W, 'E_cyan', 0.03, 0.05, 3.4, side * (X - 0.05), 7.4, z)
     wall('wall-back', -X, ZB - 0.15, X, ZB - 0.15, CEIL + 0.5, y0=-8.0)
     glass_facade(-X, ZF, X, ZF, FLOOR_Y, CEIL, mullion=2.6)
-    collider('facade', 0, ZF + 0.1, 2 * X, 0.3, 0, CEIL, player_only=True)
+    collider('facade', 0, ZF + 0.1, 2 * X, 0.3, 0, CEIL)
     skylight_ceiling(-X - 0.2, X + 0.2, ZB, ZF + 0.2, CEIL + 0.2, [(-40, -35), (-14, -6), (8, 12)])
     for z in (-44, 18):
         for side in (-1, 1):
@@ -171,13 +171,13 @@ def pickups_and_checkpoints():
              (6.0, BALCONY + 1.12, -42.5)]
     for i, (x, y, z) in enumerate(cubes):
         entity('pickup', f'cube-{i}', x=x, y=round(y, 3), z=z, phase=i * 1.35)
-    for id, x, z, after in [('start', 0.0, 17.0, None), ('edge', 0.0, 2.0, None),
+    for id, x, z, after in [('start', 0.0, 15.4, None), ('edge', 0.0, 2.0, None),
                             ('far', 0.8, -20.5, 'm03'), ('cp-fan', 5.0, -33.0, 'm03')]:
         entity('checkpoint', id, x=x, y=FLOOR_Y, z=z, radius=1.8, after=after)
 
 def build_stage():
     begin_stage('1-3', 'Átrio de Dados', {'minX': -15.6, 'maxX': 15.6, 'minZ': -45.6, 'maxZ': 19.6, 'voidY': -11},
-                [0.0, FLOOR_Y, 18.4], 0.0, cull_top=CEIL + 0.75, cull_bottom=-8.0)
+                [0.0, FLOOR_Y, 15.4], 0.0, cull_top=CEIL + 0.75, cull_bottom=-8.0)
     shell(); entry(); corridor(); void_edge(); side_bay(); far_side(); pickups_and_checkpoints()
     build_plants([(-14.6, BALCONY + 0.3, -40.5), (14.6, BLOCK + 0.3, 12.5)])
     fills = [(0, CEIL - 0.6, z, 14, 4, 900) for z in (-37.5, -10.0, 10.0)] + \

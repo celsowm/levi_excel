@@ -22,7 +22,7 @@ def shell():
             box(W, 'walnut', 0.06, 7.0, 3.2, side * (X - 0.02), 7.5, z)
     wall('wall-back', -X, ZB - 0.15, X, ZB - 0.15, 16.5, y0=-0.4)
     glass_facade(-X, ZF, X, ZF, 0.11, 16.0, mullion=2.4)
-    collider('facade', 0, ZF + 0.1, 2 * X, 0.3, 0, 16, player_only=True)
+    collider('facade', 0, ZF + 0.1, 2 * X, 0.3, 0, 16)
     skylight_ceiling(-X - 0.2, X + 0.2, ZB, ZF + 0.2, 16.2, [(-13, -10), (-2, 1), (9, 12)])
     for z in (-16.5, 16.5):
         for side in (-1, 1):
@@ -125,7 +125,7 @@ def pickups_and_checkpoints():
 
 def build_stage():
     begin_stage('1-2', 'Galeria da Fila', {'minX': -11.6, 'maxX': 11.6, 'minZ': -17.6, 'maxZ': 17.6, 'voidY': -11},
-                [0.0, FLOOR_Y, 16.4], 0.0, cull_top=16.75, cull_bottom=-1.0)
+                [0.0, FLOOR_Y, 14.6], 0.0, cull_top=16.75, cull_bottom=-1.0)
     shell(); ground_floor(); balconies(); top_gallery(); pickups_and_checkpoints()
     build_plants([(-8.9, SIDE + 0.3, z) for z in (2.0, 13.0)] + [(8.9, SIDE + 0.3, z) for z in (4.0, 11.0)])
     fills = [(0, 15.4, z, 12, 2.5, 800) for z in (-11.5, -0.5, 10.5)] + \

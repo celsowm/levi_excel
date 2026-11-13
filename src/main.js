@@ -11,6 +11,9 @@ import { createSheetPanel } from './sheet-ui.js';
 import { MISSIONS, STAGES, stageById } from './campaign.js';
 import { createRun, createSave, medal, formatTime } from './progress.js';
 import { createMusic } from './music.js';
+import { createFloorReflection } from './reflection.js';
+import { createGradePass } from './grade.js';
+import { createTerminalHologram, createGoalChevrons } from './holo.js';
 import './style.css';
 import './sheet-ui.css';
 
@@ -37,15 +40,20 @@ const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerW
 composer.setPixelRatio(renderer.getPixelRatio());
 composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
-composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.45, 1.6));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 1.25));
 composer.addPass(new OutputPass());
+composer.addPass(createGradePass());
+// Mirror-like ground floor; phones get a cheaper target.
+const floorReflection = createFloorReflection(renderer, scene,
+  { scale: matchMedia('(pointer: coarse)').matches ? 0.33 : 0.5, strength: 0.9 });
 const blobShadow = createBlobShadow();
 scene.add(blobShadow);
 const clock = new THREE.Clock();
 const save = createSave();
 
 // mode: menu | loading | playing | paused | sheet | results
-const game = { mode: 'menu', stage: null, run: null, player: null, toastTimeout: null, near: null, told: new Set() };
+const game = { mode: 'menu', stage: null, run: null, player: null, toastTimeout: null, near: null, told: new Set(), holograms: [] };
+const goalChevrons = createGoalChevrons(scene);
 const pressed = new Set();
 const touch = new Set();
 const queued = { jump: false, dash: false, interact: false };
@@ -113,9 +121,17 @@ async function startStage(id, { timeTrial = false } = {}) {
   $('#loading').classList.remove('hidden');
   $('#loading-detail').textContent = `Fase ${id} · ${stageById(id).name}`;
   game.stage?.dispose();
+  for (const { hologram } of game.holograms) { scene.remove(hologram.object); hologram.dispose(); }
+  game.holograms = [];
   game.stage = null;
   music.play(id);
   const stage = await loadStage(id, scene, renderer);
+  for (const material of stage.floors) floorReflection.apply(material);
+  for (const e of stage.entities.ofType('terminal')) {
+    const hologram = createTerminalHologram(e.x, e.y, e.z);
+    scene.add(hologram.object);
+    game.holograms.push({ hologram, mission: e.mission });
+  }
   const run = createRun(id, { timeTrial });
   run.flags.goalsDone = run.done;
   game.stage = stage;
@@ -332,17 +348,36 @@ function updateCamera(dt) {
     cameraAimTarget.set(...view.look);
   } else {
     const dist = innerWidth < 700 ? 7.9 : 7.1;
-    const horizontal = Math.cos(cameraPitch) * dist;
     cameraAimTarget.set(p.x, p.y + 1.48, p.z);
-    cameraTarget.set(p.x + Math.sin(cameraYaw) * horizontal, p.y + 1.45 + Math.sin(cameraPitch) * dist,
-      p.z + Math.cos(cameraYaw) * horizontal);
-    const corrected = game.stage.level.resolveCamera(cameraAimTarget, cameraTarget);
-    cameraTarget.set(corrected.x, corrected.y, corrected.z);
+    // Backed against a wall, the camera cranes up instead of closing in on Levi.
+    let pitch = cameraPitch;
+    for (let i = 0; i < 6; i++) {
+      const horizontal = Math.cos(pitch) * dist;
+      cameraTarget.set(p.x + Math.sin(cameraYaw) * horizontal, p.y + 1.45 + Math.sin(pitch) * dist,
+        p.z + Math.cos(cameraYaw) * horizontal);
+      const corrected = game.stage.level.resolveCamera(cameraAimTarget, cameraTarget);
+      cameraTarget.set(corrected.x, corrected.y, corrected.z);
+      if (cameraTarget.distanceTo(cameraAimTarget) > dist * 0.6 || pitch >= 0.9) break;
+      pitch = Math.min(0.9, pitch + 0.14);
+    }
   }
   const k = 1 - Math.exp(-dt * (view ? 4 : 10));
   camera.position.lerp(cameraTarget, k);
   cameraAim.lerp(cameraAimTarget, k);
   camera.lookAt(cameraAim);
+}
+
+// Terminal holograms glow brighter for the current mission and dim once it is solved;
+// floor chevrons lead to the current goal.
+function updateHolograms(dt) {
+  const { run } = game;
+  const current = run.currentGoal();
+  for (const { hologram, mission } of game.holograms) {
+    const goal = run.stage.goals.find((g) => g.mission === mission);
+    const state = goal && run.done.has(goal.id) ? 'done' : current?.mission === mission ? 'current' : 'idle';
+    hologram.update(elapsed, camera, state);
+  }
+  goalChevrons.update(elapsed, dt, game.player.state, game.mode === 'playing' ? goalTarget() : null);
 }
 
 function updateMarker() {
@@ -420,9 +455,11 @@ function animate() {
     $('#timer').textContent = formatTime(run.time);
     updateCamera(dt);
     updateMarker();
+    updateHolograms(dt);
   }
   queued.interact = false;
   updateBlobShadow();
+  if (game.stage) floorReflection.update(camera);
   composer.render(dt);
 }
 
@@ -473,6 +510,8 @@ window.addEventListener('resize', () => {
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.8));
   composer.setPixelRatio(renderer.getPixelRatio());
   composer.setSize(innerWidth, innerHeight);
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  floorReflection.setSize(size.x, size.y);
 });
 
 for (const button of document.querySelectorAll('[data-control]')) {

@@ -30,7 +30,7 @@ function skyTexture() {
 // Sky, fog, environment and the realtime lights that shade Levi and the props.
 export function setupScene(scene, renderer) {
   scene.background = skyTexture();
-  scene.fog = new THREE.Fog(0xd5e6ea, 60, 140);
+  scene.fog = new THREE.Fog(0xa8c3d4, 75, 150);
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.55;
@@ -181,7 +181,7 @@ export async function loadStage(id, scene, renderer) {
   const elevator = assets.materials.get('E_elevator');
   let exitOpen = false;
   return {
-    id, data, level, entities, root,
+    id, data, level, entities, root, floors: assets.floors,
     spawn: { x: sx, y: sy, z: sz, yaw: data.spawnYaw ?? 0 },
     voidY: data.bounds.voidY,
     totals: { cubes: entities.ofType('pickup').length, secrets: entities.ofType('secret').length },

@@ -10,7 +10,8 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 const BASE = import.meta.env.BASE_URL;
 // Cycles bakes physical irradiance; this maps it into the ACES range used at runtime.
 const BAKE_EXPOSURE = 0.6;
-const REFLECTIVE = { LM_marble: 0.1, LM_steel: 0.32, LM_bronze: 0.28, LM_alu: 0.22, LM_white: 0.05 };
+// Env-map reflectivity; the marble floor gets a planar reflection instead (reflection.js).
+const REFLECTIVE = { LM_steel: 0.32, LM_bronze: 0.28, LM_alu: 0.22, LM_white: 0.05 };
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 
 export async function loadStageWorld(data) {
@@ -27,6 +28,7 @@ export async function loadStageWorld(data) {
 
   const materials = new Map();
   const reflective = [];
+  const floors = [];
   const glass = new THREE.MeshStandardMaterial({
     color: 0xd8f4f4, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.13,
     depthWrite: false, side: THREE.DoubleSide, envMapIntensity: 1.4,
@@ -42,6 +44,7 @@ export async function loadStageWorld(data) {
         lightMap, lightMapIntensity: Math.PI * lightMapScale * BAKE_EXPOSURE,
       });
       if (!lightMap) material.color.multiplyScalar(0.8);
+      if (node.name === 'LM_marble') floors.push(material);
       if (REFLECTIVE[node.name]) {
         material.combine = THREE.MixOperation;
         material.reflectivity = REFLECTIVE[node.name];
@@ -76,7 +79,7 @@ export async function loadStageWorld(data) {
     glass.dispose();
     lightMap?.dispose();
   }
-  return { world: world.scene, materials, reflective, dispose };
+  return { world: world.scene, materials, reflective, floors, dispose };
 }
 
 // Shared prefab library (props.glb): one load for every stage.
