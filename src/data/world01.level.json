@@ -1,0 +1,540 @@
+{
+ "version": 1,
+ "bounds": {
+  "minX": -13.35,
+  "maxX": 13.35,
+  "minZ": -21.4,
+  "maxZ": 19.5,
+  "voidY": -11
+ },
+ "floors": [
+  {
+   "id": "lobby",
+   "minX": -13.7,
+   "maxX": 13.7,
+   "minZ": -2,
+   "maxZ": 20,
+   "y": 0.11
+  },
+  {
+   "id": "archive",
+   "minX": -13.7,
+   "maxX": 13.7,
+   "minZ": -22,
+   "maxZ": -8,
+   "y": 0.11
+  },
+  {
+   "id": "bridge",
+   "minX": -2.1,
+   "maxX": 2.1,
+   "minZ": -8,
+   "maxZ": -2,
+   "y": 0.11,
+   "requires": "bridge"
+  }
+ ],
+ "colliders": [
+  {
+   "id": "wall-left",
+   "x": -13.85,
+   "z": -1,
+   "width": 0.28,
+   "depth": 43,
+   "minY": 0,
+   "maxY": 13.8
+  },
+  {
+   "id": "wall-right",
+   "x": 13.85,
+   "z": -1,
+   "width": 0.28,
+   "depth": 43,
+   "minY": 0,
+   "maxY": 13.8
+  },
+  {
+   "id": "wall-back",
+   "x": 0,
+   "z": -22.9,
+   "width": 28.4,
+   "depth": 0.6,
+   "minY": 0,
+   "maxY": 14.2
+  },
+  {
+   "id": "canopy",
+   "x": 0,
+   "z": 23.0,
+   "width": 28.6,
+   "depth": 5.0,
+   "minY": 7.5,
+   "maxY": 7.9
+  },
+  {
+   "id": "pilaster--1--19",
+   "x": -12.85,
+   "z": -19,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster-1--19",
+   "x": 12.85,
+   "z": -19,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster--1--10.6",
+   "x": -12.85,
+   "z": -10.6,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster-1--10.6",
+   "x": 12.85,
+   "z": -10.6,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster--1-0.6",
+   "x": -12.85,
+   "z": 0.6,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster-1-0.6",
+   "x": 12.85,
+   "z": 0.6,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster--1-9.1",
+   "x": -12.85,
+   "z": 9.1,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster-1-9.1",
+   "x": 12.85,
+   "z": 9.1,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster--1-18",
+   "x": -12.85,
+   "z": 18,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "pilaster-1-18",
+   "x": 12.85,
+   "z": 18,
+   "width": 0.9,
+   "depth": 0.9,
+   "minY": 0,
+   "maxY": 12
+  },
+  {
+   "id": "reception-desk",
+   "x": -8.7,
+   "z": 10.7,
+   "width": 6.15,
+   "depth": 2.8,
+   "minY": 0.08,
+   "maxY": 1.64
+  },
+  {
+   "id": "feature-wall",
+   "x": -13.5,
+   "z": 10.4,
+   "width": 0.4,
+   "depth": 8.0,
+   "minY": 0,
+   "maxY": 6.3
+  },
+  {
+   "id": "terminal-FILTRO",
+   "x": 0.0,
+   "z": 1.45,
+   "width": 2.65,
+   "depth": 1.85,
+   "minY": 0.05,
+   "maxY": 2.9
+  },
+  {
+   "id": "terminal-SOMA",
+   "x": 3.3,
+   "z": -14.5,
+   "width": 2.65,
+   "depth": 1.85,
+   "minY": 0.05,
+   "maxY": 2.9
+  },
+  {
+   "id": "elevator-door",
+   "x": 0,
+   "z": -21.28,
+   "width": 4.55,
+   "depth": 0.32,
+   "minY": 0,
+   "maxY": 5.8
+  },
+  {
+   "id": "planter-1",
+   "x": -11.35,
+   "z": 17.25,
+   "width": 1.16,
+   "depth": 1.16,
+   "minY": 0,
+   "maxY": 3.4
+  },
+  {
+   "id": "planter-2",
+   "x": -11.35,
+   "z": 2.9,
+   "width": 1.16,
+   "depth": 1.16,
+   "minY": 0,
+   "maxY": 3.4
+  },
+  {
+   "id": "planter-3",
+   "x": 11.5,
+   "z": -17.5,
+   "width": 1.16,
+   "depth": 1.16,
+   "minY": 0,
+   "maxY": 3.4
+  },
+  {
+   "id": "bench--10.6-4.6",
+   "x": -10.6,
+   "z": 4.6,
+   "width": 2.25,
+   "depth": 1.0,
+   "minY": 0.0,
+   "maxY": 1.22
+  },
+  {
+   "id": "bench-11.2-1.0",
+   "x": 11.2,
+   "z": 1.0,
+   "width": 1.0,
+   "depth": 2.25,
+   "minY": 0.0,
+   "maxY": 1.22
+  },
+  {
+   "id": "support-13.2",
+   "x": 8.1,
+   "z": 13.2,
+   "width": 0.53,
+   "depth": 0.53,
+   "minY": 0,
+   "maxY": 2.1
+  },
+  {
+   "id": "support-10.3",
+   "x": 9.6,
+   "z": 10.3,
+   "width": 0.53,
+   "depth": 0.53,
+   "minY": 0,
+   "maxY": 2.4
+  },
+  {
+   "id": "support-7.3",
+   "x": 8.2,
+   "z": 7.3,
+   "width": 0.53,
+   "depth": 0.53,
+   "minY": 0,
+   "maxY": 2.8000000000000003
+  },
+  {
+   "id": "support-4.8",
+   "x": 7.1,
+   "z": 4.8,
+   "width": 0.53,
+   "depth": 0.53,
+   "minY": 0,
+   "maxY": 2.25
+  },
+  {
+   "id": "planter-4",
+   "x": -12.3,
+   "z": -6.0,
+   "width": 1.0,
+   "depth": 1.0,
+   "minY": 0,
+   "maxY": 3.0
+  },
+  {
+   "id": "planter-5",
+   "x": 12.3,
+   "z": 12.5,
+   "width": 1.0,
+   "depth": 1.0,
+   "minY": 0,
+   "maxY": 3.0
+  },
+  {
+   "id": "planter-6",
+   "x": 5.6,
+   "z": -20.3,
+   "width": 1.0,
+   "depth": 1.0,
+   "minY": 0,
+   "maxY": 3.0
+  },
+  {
+   "id": "planter-7",
+   "x": -5.6,
+   "z": -20.3,
+   "width": 1.0,
+   "depth": 1.0,
+   "minY": 0,
+   "maxY": 3.0
+  },
+  {
+   "id": "sign-reception",
+   "x": -8.6,
+   "z": 10.5,
+   "width": 3.7,
+   "depth": 0.3,
+   "minY": 2.8,
+   "maxY": 3.85,
+   "cameraOnly": true
+  },
+  {
+   "id": "sign-circuito",
+   "x": 8.2,
+   "z": 19.0,
+   "width": 4.9,
+   "depth": 0.3,
+   "minY": 3.85,
+   "maxY": 4.95,
+   "cameraOnly": true
+  },
+  {
+   "id": "sign-corredor",
+   "x": 0.0,
+   "z": 7.5,
+   "width": 4.9,
+   "depth": 0.3,
+   "minY": 3.85,
+   "maxY": 4.95,
+   "cameraOnly": true
+  }
+ ],
+ "walkables": [
+  {
+   "x": -8.7,
+   "z": 10.7,
+   "halfX": 2.93,
+   "halfZ": 1.2,
+   "height": 1.59
+  }
+ ],
+ "spawns": {
+  "start": [
+   0,
+   0.11,
+   15
+  ],
+  "course": [
+   7.65,
+   0.11,
+   16.85
+  ],
+  "bridge": [
+   0,
+   0.11,
+   -0.6
+  ],
+  "archive": [
+   0,
+   0.11,
+   -11
+  ]
+ },
+ "interactables": {
+  "reception": [
+   -8.4,
+   10
+  ],
+  "filter": [
+   0,
+   1.45
+  ],
+  "sum": [
+   3.3,
+   -14.5
+  ],
+  "elevator": [
+   0,
+   -20.55
+  ]
+ },
+ "pickups": [
+  [
+   -4,
+   7
+  ],
+  [
+   4,
+   10
+  ],
+  [
+   8,
+   14
+  ],
+  [
+   -9,
+   4
+  ],
+  [
+   0,
+   -3.5
+  ],
+  [
+   0,
+   -6.5
+  ],
+  [
+   -6,
+   -13
+  ],
+  [
+   8.5,
+   -17
+  ]
+ ],
+ "course": {
+  "platforms": [
+   {
+    "x": 8.1,
+    "z": 13.2,
+    "w": 3.5,
+    "d": 2.9,
+    "y": 2.25,
+    "motion": 0,
+    "phase": 0
+   },
+   {
+    "x": 9.6,
+    "z": 10.3,
+    "w": 3.5,
+    "d": 2.8,
+    "y": 2.55,
+    "motion": 0.24,
+    "phase": 0
+   },
+   {
+    "x": 8.2,
+    "z": 7.3,
+    "w": 3.7,
+    "d": 2.7,
+    "y": 2.95,
+    "motion": 0.28,
+    "phase": 1.5707963267948966
+   },
+   {
+    "x": 7.1,
+    "z": 4.8,
+    "w": 3.7,
+    "d": 2.9,
+    "y": 2.4,
+    "motion": 0,
+    "phase": 0
+   }
+  ],
+  "pad": {
+   "x": 8,
+   "z": 16,
+   "radius": 1.04
+  },
+  "finish": {
+   "x": 7.1,
+   "z": 4.8,
+   "radius": 1.12
+  },
+  "barrier": {
+   "x": 0,
+   "z": 9.55,
+   "halfWidth": 3.3,
+   "minZ": 9.2,
+   "maxZ": 9.9,
+   "height": 2.04
+  },
+  "scanner": {
+   "x": 9.25,
+   "y": 3.3,
+   "z": 8.7,
+   "sweep": 0.8
+  },
+  "sentinel": {
+   "x": 9.2,
+   "y": 3.5,
+   "z": 8.8,
+   "sweep": 0.7
+  }
+ },
+ "courier": [
+  [
+   -8.4,
+   2.3,
+   10.6
+  ],
+  [
+   -6.5,
+   2.6,
+   8.1
+  ],
+  [
+   -2.9,
+   2.4,
+   4.6
+  ],
+  [
+   0,
+   2.3,
+   1.7
+  ]
+ ],
+ "bridge": {
+  "segments": 6,
+  "firstZ": -2.5,
+  "step": 1.0
+ },
+ "render": {
+  "lightMapScale": 2.8771
+ }
+}

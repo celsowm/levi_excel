@@ -1,231 +1,155 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import levelData from './data/world01.level.json';
+import { createLevel } from './level.js';
 import { createActionCourse } from './action-course.js';
-import { createLobbyArt } from './lobby-art.js';
-import { boxCollider, moveWithCollisions, shortenCameraArm } from './collisions.js';
+import { loadWorldAssets, captureReflections } from './world-assets.js';
 
-const C = {
-  navy: 0x071a2d, deep: 0x102b46, steel: 0x263e59, light: 0xb9d9eb,
-  cyan: 0x19e4f2, blue: 0x168cf1, green: 0x70ff95, gold: 0xffc656,
-  pink: 0xe73dff, glass: 0x64d4f1, white: 0xf4fbff,
-};
-
-function material(color, options = {}) {
-  return new THREE.MeshStandardMaterial({ color, metalness: 0.35, roughness: 0.38, ...options });
-}
-function addMesh(scene, geometry, mat, x, y, z, shadows = true) {
-  const mesh = new THREE.Mesh(geometry, mat);
-  mesh.position.set(x, y, z);
-  mesh.castShadow = shadows;
-  mesh.receiveShadow = shadows;
-  scene.add(mesh);
-  return mesh;
-}
-function box(scene, w, h, d, x, y, z, mat, shadows = true) {
-  return addMesh(scene, new THREE.BoxGeometry(w, h, d), mat, x, y, z, shadows);
-}
-function cylinder(scene, r1, r2, h, x, y, z, mat, sides = 16) {
-  return addMesh(scene, new THREE.CylinderGeometry(r1, r2, h, sides), mat, x, y, z);
-}
-function glow(color, strength = 1.5) {
-  return material(color, { emissive: color, emissiveIntensity: strength, roughness: 0.25, metalness: 0.1 });
-}
-function labelTexture(title, subtitle = '', accent = '#75faff') {
+// World 01 "Recepção Inteligente". Architecture, props and the gameplay layout are
+// authored in Blender (art/blender/build_world01.py); this module wires the exported
+// level data to gameplay and animates the interactive prefabs.
+function skyTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
+  canvas.width = 16;
   canvas.height = 256;
   const g = canvas.getContext('2d');
-  g.fillStyle = '#071b2a';
-  g.fillRect(0, 0, 1024, 256);
-  g.fillStyle = accent;
-  g.fillRect(0, 0, 1024, 12);
-  g.font = 'bold 74px system-ui, Arial, sans-serif';
-  g.textAlign = 'center';
-  g.fillStyle = '#ecffff';
-  g.fillText(title, 512, subtitle ? 130 : 158, 920);
-  if (subtitle) {
-    g.font = '36px system-ui, Arial, sans-serif';
-    g.fillStyle = accent;
-    g.fillText(subtitle, 512, 202, 920);
-  }
+  const gradient = g.createLinearGradient(0, 0, 0, 256);
+  gradient.addColorStop(0, '#5f9fd6');
+  gradient.addColorStop(0.45, '#b9d8ee');
+  gradient.addColorStop(0.52, '#e3eef0');
+  gradient.addColorStop(1, '#8aa38f');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 16, 256);
   const texture = new THREE.CanvasTexture(canvas);
+  texture.mapping = THREE.EquirectangularReflectionMapping;
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+  return texture;
 }
-function sign(scene, title, subtitle, x, y, z, width = 5, accent = '#75faff') {
-  const label = addMesh(scene, new THREE.PlaneGeometry(width, width / 4), labelTexture(title, subtitle, accent), x, y, z, false);
-  label.renderOrder = 2;
-  return label;
-}
-export function createWorld(scene) {
-  scene.background = new THREE.Color(0xc7dce0);
-  scene.fog = new THREE.FogExp2(0xb6cdd1, 0.012);
-  scene.add(new THREE.HemisphereLight(0xf6faf7, 0x445c68, 1.45));
-  const sun = new THREE.DirectionalLight(0xfff6df, 1.75);
+
+export function createWorld(scene, renderer) {
+  const level = createLevel(levelData);
+  scene.background = skyTexture();
+  scene.fog = new THREE.Fog(0xd5e6ea, 55, 125);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.55;
+  pmrem.dispose();
+  // Realtime lights only shade Levi, props and foliage; the architecture is baked.
+  scene.add(new THREE.HemisphereLight(0xf3f8ff, 0x6e6656, 1.15));
+  const sun = new THREE.DirectionalLight(0xfff1dc, 1.5);
   sun.position.set(-8, 16, 11);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -28; sun.shadow.camera.right = 28;
-  sun.shadow.camera.top = 32; sun.shadow.camera.bottom = -32;
-  sun.shadow.camera.near = 0.1; sun.shadow.camera.far = 85;
-  sun.shadow.bias = -0.0002;
   scene.add(sun);
-  const accent = new THREE.PointLight(0x93dfcb, 35, 14, 2);
-  accent.position.set(-1, 7, -2);
-  scene.add(accent);
-  const accent2 = new THREE.PointLight(0xd3adcb, 18, 12, 2);
-  accent2.position.set(10, 6, -18);
-  scene.add(accent2);
 
-  const floor = material(0x7d9698, { metalness: 0.1, roughness: 0.82 });
-  const floorSide = material(0x10263c, { metalness: 0.5 });
-  const inlay = glow(0x67cdbb, 0.47);
-  const orange = glow(C.gold, 1.1);
-  const frames = material(0x1d344e, { metalness: 0.7, roughness: 0.24 });
-  const windowMat = material(C.glass, { transparent: true, opacity: 0.15, metalness: 0.15, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
+  const course = createActionCourse(scene, levelData.course);
+  const solids = level.colliders.concat(course.colliders);
+  const cameraSolids = level.cameraColliders.concat(course.colliders);
+  const dynamic = new THREE.Group();
+  dynamic.name = 'WorldProps';
+  scene.add(dynamic);
+  const holder = (x, y, z) => {
+    const group = new THREE.Group();
+    group.position.set(x, y, z);
+    dynamic.add(group);
+    return group;
+  };
 
-  // Two solid islands separated by a real playable gap. The bridge appears after the filter mission.
-  box(scene, 28, 1.4, 22, 0, -0.74, 9, floor);
-  box(scene, 28, 1.4, 14, 0, -0.74, -15, floor);
-  for (const z of [9, -15]) {
-    box(scene, 27.6, 0.18, z === 9 ? 21.6 : 13.6, 0, 0.01, z, material(0x3c5b70, { metalness: 0.55, roughness: 0.28 }), false);
-  }
-  for (const z of [-20, -15, -10, -5, 0, 5, 10, 15, 20]) {
-    for (const x of [-13.8, 13.8]) {
-      box(scene, 0.17, 14.2, 4.6, x, 7.4, z, windowMat, false);
+  // Deployable walkway: absent until the filter mission, then unfolds segment by segment.
+  const { segments, firstZ, step } = levelData.bridge;
+  const boards = Array.from({ length: segments }, (_, i) => {
+    const board = holder(0, -2, firstZ - i * step);
+    board.visible = false;
+    return board;
+  });
+  const collectibles = levelData.pickups.map(([x, z], i) => ({
+    x, z, mesh: holder(x, 1.23, z), halo: holder(x, 1.23, z),
+    baseY: 1.23, collected: false, phase: i * 1.35,
+  }));
+  // Floating data cubes above the archive: pure set dressing.
+  const drifting = Array.from({ length: 6 }, (_, i) => {
+    const node = holder(8 + Math.sin(i * 8) * 2.6, 3 + (i % 7) * 0.85, -18 + Math.cos(i * 4) * 2);
+    node.scale.setScalar(0.7 + (i % 3) * 0.25);
+    return { node, y: node.position.y, phase: i };
+  });
+  const rings = holder(-8.5, 7.2, 9.8);
+  const courier = holder(...levelData.courier[0]);
+  const courierPath = new THREE.CatmullRomCurve3(levelData.courier.map(([x, y, z]) => new THREE.Vector3(x, y, z)));
+
+  let materials = new Map();
+  const ready = loadWorldAssets(levelData.render).then((assets) => {
+    scene.add(assets.world);
+    course.attach(assets.prefab);
+    boards.forEach((board) => board.add(assets.prefab('bridge_segment')));
+    for (const c of collectibles) {
+      c.mesh.add(assets.prefab('data_cube'));
+      c.halo.add(assets.prefab('data_halo'));
     }
-  }
-  for (const z of [-20, -10, 0, 10, 20]) {
-    box(scene, 27.8, 0.17, 0.36, 0, 14.5, z, frames);
-    box(scene, 23, 0.08, 0.12, 0, 14.4, z + 0.18, inlay, false);
-  }
-  const staticColliders = [];
-  // Interactive consoles: registered collision volumes and restrained small labels.
-  function terminal(x, z, name, tint) {
-    const stand = box(scene, 2.2, 1.2, 1.35, x, 0.7, z, frames);
-    stand.rotation.x = -0.05;
-    box(scene, 2.3, 0.09, 1.4, x, 1.35, z, glow(tint, 0.95), false);
-    const screen = box(scene, 2.45, 1.3, 0.14, x, 2.12, z - 0.18, material(0x083343, { emissive: tint, emissiveIntensity: 0.34, metalness: 0.1 }), false);
-    screen.rotation.x = -0.16;
-    sign(scene, name, '', x, 2.18, z - 0.08, 1.12, '#9efeff');
-    const ring = addMesh(scene, new THREE.TorusGeometry(1.65, 0.045, 8, 64), glow(tint, 1.2), x, 0.14, z, false);
-    ring.rotation.x = Math.PI / 2;
-    staticColliders.push(boxCollider('terminal-' + name, x, z, 2.65, 1.85, 0.05, 2.9));
-    return { x, z, ring };
-  }
-  const filterTerminal = terminal(0, 1.45, 'FILTRO', C.cyan);
-  const sumTerminal = terminal(3.3, -14.5, 'SOMA', C.green);
+    for (const d of drifting) d.node.add(assets.prefab('data_cube'));
+    rings.add(assets.prefab('info_rings'));
+    courier.add(assets.prefab('helper_drone'));
+    materials = assets.materials;
+    captureReflections(renderer, scene, assets.reflective, new THREE.Vector3(0, 1.6, 6));
+    return assets;
+  });
 
-  // Bridge is physically absent until filtering is solved.
-  const bridge = new THREE.Group();
-  scene.add(bridge);
-  const boards = [];
-  for (let i = 0; i < 6; i++) {
-    const z = -2.5 - i;
-    const top = box(bridge, 4.2, 0.24, 0.96, 0, -0.07, z, material(0x284b62, { metalness: 0.66, roughness: 0.25 }));
-    const edgeL = box(bridge, 0.1, 0.08, 0.93, -2.04, 0.1, z, inlay, false);
-    const edgeR = box(bridge, 0.1, 0.08, 0.93, 2.04, 0.1, z, inlay, false);
-    const stripe = box(bridge, 1.3, 0.045, 0.06, 0, 0.1, z, orange, false);
-    boards.push({ z, objects: [top, edgeL, edgeR, stripe] });
-  }
-  bridge.visible = false;
-  const abyss = box(scene, 27, 0.03, 5.8, 0, -8.5, -5, glow(C.pink, 0.25), false);
-  abyss.material.transparent = true;
-  abyss.material.opacity = 0.15;
-  // Elevator goal.
-  box(scene, 6.1, 7.6, 0.6, 0, 3.8, -21.7, frames);
-  box(scene, 4.45, 5.65, 0.16, 0, 2.82, -21.26, material(0x113049, { metalness: 0.88, roughness: 0.2 }));
-  box(scene, 0.08, 5.7, 0.2, 0, 2.81, -21.1, glow(C.pink, 1.1), false);
-  box(scene, 4.7, 0.13, 0.2, 0, 5.9, -21.07, glow(C.pink, 1.1), false);
-  const elevatorGlow = glow(C.pink, 1.2);
-  const elevatorHeader = box(scene, 4.8, 0.23, 0.22, 0, 6.18, -21.06, elevatorGlow, false);
-  sign(scene, 'ELEVADOR', '', 0, 7.35, -21.13, 2.8, '#9bffe0');
-  staticColliders.push(boxCollider('elevator-door', 0, -21.28, 4.55, 0.32, 0, 5.8));
-  const glitchBlocks = [];
-  for (let i = 0; i < 6; i++) {
-    const m = box(scene, 0.3 + (i % 4) * 0.14, 0.33, 0.35,
-      8 + Math.sin(i * 8) * 2.6, 3 + (i % 7) * 0.85, -18 + Math.cos(i * 4) * 2,
-      glow(i % 3 === 0 ? C.pink : C.blue, 1.1), false);
-    glitchBlocks.push({ mesh: m, y: m.position.y, phase: i });
-  }
-  const collectibles = [];
-  const pickups = [[-4, 7], [4, 10], [8, 14], [-9, 4], [0, -3.5], [0, -6.5], [-6, -13], [8.5, -17]];
-  for (const [i, pos] of pickups.entries()) {
-    const mesh = addMesh(scene, new THREE.OctahedronGeometry(0.35, 0), glow(i % 2 ? C.green : C.gold, 1.65), pos[0], 1.23, pos[1], false);
-    const halo = addMesh(scene, new THREE.TorusGeometry(0.47, 0.023, 6, 30), glow(C.cyan, 0.75), pos[0], 1.23, pos[1], false);
-    collectibles.push({ x: pos[0], z: pos[1], mesh, halo, baseY: 1.23, collected: false, phase: i * 1.35 });
-  }
-  const lobbyArt = createLobbyArt(scene);
-  const actionCourse = createActionCourse(scene);
-  staticColliders.push(...lobbyArt.colliders);
-  if (actionCourse.colliders) staticColliders.push(...actionCourse.colliders);
-  staticColliders.push(boxCollider('wall-left', -13.85, -1, 0.28, 43, 0, 13.8));
-  staticColliders.push(boxCollider('wall-right', 13.85, -1, 0.28, 43, 0, 13.8));
   let bridgeProgress = 0;
+  let receptionSolved = false;
+  let courierProgress = 0;
   function update(t, dt, bridgeUnlocked, elevatorUnlocked) {
-    lobbyArt.update(t);
-    actionCourse.update(t);
-    if (bridgeUnlocked) {
-      bridge.visible = true;
+    course.update(t);
+    if (bridgeUnlocked && bridgeProgress < 1) {
       bridgeProgress = Math.min(1, bridgeProgress + dt * 2.0);
-      boards.forEach(({ objects }, i) => {
-        const p = Math.max(0.001, Math.min(1, (bridgeProgress * 6.8 - i) * 1.7));
-        for (const o of objects) {
-          o.visible = p > 0.001;
-          o.scale.y = p;
-          o.position.y = -0.15 + p * (o.geometry.parameters.height === 0.24 ? 0.08 : 0.25);
-        }
+      boards.forEach((board, i) => {
+        const p = THREE.MathUtils.clamp((bridgeProgress * 6.8 - i) * 1.7, 0, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        board.visible = p > 0.001;
+        board.position.y = levelData.floors[0].y - 0.015 - (1 - eased) * 1.6;
+        board.scale.x = 0.55 + 0.45 * eased;
       });
     }
-    if (elevatorUnlocked) {
-      elevatorGlow.color.setHex(C.green);
-      elevatorGlow.emissive.setHex(C.green);
-      elevatorHeader.scale.x = 1 + 0.09 * Math.sin(t * 3);
-    }
+    const elevator = materials.get('E_elevator');
+    if (elevator && elevatorUnlocked) elevator.color.setRGB(0.35, 1, 0.3).multiplyScalar(2.6 + Math.sin(t * 3) * 0.8);
+    const mint = materials.get('E_mint');
+    if (mint) mint.color.setRGB(0.3, 1, 0.72).multiplyScalar(2.2 + Math.sin(t * 2) * 0.9);
     for (const c of collectibles) {
       if (c.collected) continue;
       c.mesh.rotation.y += dt * 1.7;
       c.mesh.rotation.z += dt * 0.85;
       c.mesh.position.y = c.baseY + Math.sin(t * 2.4 + c.phase) * 0.19;
       c.halo.position.y = c.mesh.position.y;
-      c.halo.rotation.y += dt * 1.3;
+      c.halo.rotation.x = Math.sin(t * 1.3 + c.phase) * 0.4;
     }
-    for (const g of glitchBlocks) {
-      g.mesh.position.y = g.y + Math.sin(t * 1.7 + g.phase) * 0.22;
-      g.mesh.rotation.y += dt * 0.33;
+    for (const d of drifting) {
+      d.node.position.y = d.y + Math.sin(t * 1.7 + d.phase) * 0.22;
+      d.node.rotation.y += dt * 0.33;
     }
-    filterTerminal.ring.rotation.z = Math.sin(t * 0.6) * 0.06;
-    sumTerminal.ring.rotation.z = Math.sin(t * 0.6 + 2) * 0.06;
+    if (receptionSolved) courierProgress = Math.min(1, courierProgress + dt * 0.2);
+    const pos = courierPath.getPoint(courierProgress);
+    courier.position.set(pos.x, pos.y + Math.sin(t * 2) * 0.08, pos.z);
+    courier.rotation.y = -courierProgress * 0.8;
+    courier.rotation.z = Math.sin(t * 1.6) * 0.06;
+    rings.rotation.y = Math.sin(t * 0.13) * 0.08;
+    rings.rotation.z = Math.sin(t * 0.22) * 0.035;
   }
   function getGroundHeight(x, z, bridgeUnlocked, footY = Infinity) {
-    if (Math.abs(x) > 13.7) return null;
-    let floor = null;
-    if (z >= -2 && z <= 20) floor = 0.11;
-    if (z >= -22 && z <= -8) floor = 0.11;
-    if (bridgeUnlocked && Math.abs(x) <= 2.1 && z >= -8 && z <= -2) floor = 0.11;
-    const furniture = lobbyArt.getWalkableHeight(x, z, footY, floor);
-    return actionCourse.getSurfaceHeight(x, z, footY, furniture);
+    const furniture = level.groundHeight(x, z, { bridge: bridgeUnlocked }, footY);
+    return course.getSurfaceHeight(x, z, footY, furniture);
   }
-  function resolvePlayerMove(position, dx, dz, footY) {
-    const moved = moveWithCollisions(position, dx, dz, footY, staticColliders);
-    return {
-      x: THREE.MathUtils.clamp(moved.x, -13.35, 13.35),
-      z: THREE.MathUtils.clamp(moved.z, -21.4, 19.5),
-      hitX: moved.hitX, hitZ: moved.hitZ,
-    };
-  }
-  function resolveCamera(from, to) {
-    return shortenCameraArm(from, to, staticColliders, 0.21);
-  }
+  const [rx, rz] = levelData.interactables.reception;
+  const [fx, fz] = levelData.interactables.filter;
+  const [sx, sz] = levelData.interactables.sum;
+  const [ex, ez] = levelData.interactables.elevator;
   return {
-    resolvePlayerMove, resolveCamera,
-    receptionTerminal: { x: -8.4, z: 10 },
-    setReceptionSolved: lobbyArt.setReceptionSolved,
-    filterTerminal, sumTerminal, elevator: { x: 0, z: -20.55 },
+    ready,
+    resolvePlayerMove: (position, dx, dz, footY) => level.resolveMove(position, dx, dz, footY, solids),
+    resolveCamera: (from, to) => level.resolveCamera(from, to, cameraSolids),
+    receptionTerminal: { x: rx, z: rz },
+    setReceptionSolved(value) { receptionSolved = Boolean(value); },
+    filterTerminal: { x: fx, z: fz }, sumTerminal: { x: sx, z: sz }, elevator: { x: ex, z: ez },
+    spawns: levelData.spawns, voidY: levelData.bounds.voidY,
     collectibles, update, getGroundHeight,
-    courseCollision: actionCourse.collision,
-    courseHazard: actionCourse.hazard,
-    courseJumpPad: actionCourse.jumpPad,
-    courseFinish: actionCourse.atFinish,
+    courseCollision: course.collision,
+    courseHazard: course.hazard,
+    courseJumpPad: course.jumpPad,
+    courseFinish: course.atFinish,
   };
 }

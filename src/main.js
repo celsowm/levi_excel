@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createWorld } from './world.js';
 import { createLevi } from './character.js';
 import { readMovementInput, smoothVelocity } from './movement.js';
@@ -13,23 +17,32 @@ const canvas = $('#game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Architecture lighting is baked in Blender; Levi grounds himself with a blob shadow.
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 130);
-const world = createWorld(scene);
+const world = createWorld(scene, renderer);
 const levi = createLevi(scene);
+// Multisampled HDR target keeps edges clean while light strips feed the bloom.
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight,
+  { type: THREE.HalfFloatType, samples: 4 }));
+composer.setPixelRatio(renderer.getPixelRatio());
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.45, 1.6));
+composer.addPass(new OutputPass());
+const blobShadow = createBlobShadow();
+scene.add(blobShadow);
 const clock = new THREE.Clock();
 const traversal = createTraversal();
 const courseFacing = new THREE.Vector3(0, 0, -1);
 const cameraTarget = new THREE.Vector3();
 const cameraAim = new THREE.Vector3();
 const cameraAimTarget = new THREE.Vector3();
-const player = { position: new THREE.Vector3(0, 0.11, 15), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
+const player = { position: new THREE.Vector3(...world.spawns.start), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
 const game = { started: false, completed: false, receptionSolved: false, filterSolved: false, sumSolved: false,
   courseDone: false, courseCheckpoint: false, barrierBroken: false,
   cubes: 0, reachedFarSide: false, toastTimeout: null };
@@ -142,11 +155,38 @@ function updateInteraction() {
     $('#touch-interact').classList.remove('available');
   }
 }
+function createBlobShadow() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const g = canvas.getContext('2d');
+  const gradient = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+  gradient.addColorStop(0, 'rgba(8,18,24,0.85)');
+  gradient.addColorStop(0.55, 'rgba(8,18,24,0.42)');
+  gradient.addColorStop(1, 'rgba(8,18,24,0)');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 128, 128);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -2,
+  }));
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 1;
+  return mesh;
+}
+function updateBlobShadow() {
+  const p = player.position;
+  const ground = world.getGroundHeight(p.x, p.z, game.filterSolved, p.y + 0.05);
+  blobShadow.visible = ground !== null;
+  if (ground === null) return;
+  const fade = THREE.MathUtils.clamp(1 - (p.y - ground) / 6, 0.3, 1);
+  blobShadow.position.set(p.x, ground + 0.012, p.z);
+  blobShadow.scale.setScalar(0.55 + fade * 0.45);
+  blobShadow.material.opacity = 0.75 * fade;
+}
 function respawn() {
-  if (game.reachedFarSide) player.position.set(0, 0.11, -11);
-  else if (game.filterSolved) player.position.set(0, 0.11, 1);
-  else if (game.courseCheckpoint) player.position.set(7.65, 0.11, 16.85);
-  else player.position.set(0, 0.11, 15);
+  const spawn = game.reachedFarSide ? world.spawns.archive : game.filterSolved ? world.spawns.bridge
+    : game.courseCheckpoint ? world.spawns.course : world.spawns.start;
+  player.position.set(...spawn);
   player.vy = 0;
   player.velocity.set(0, 0, 0);
   Object.assign(traversal, createTraversal());
@@ -263,7 +303,7 @@ function movePlayer(dt) {
     return;
   }
   if (game.filterSolved && player.position.z < -8.5 && surface !== null) game.reachedFarSide = true;
-  if (player.position.y < -11) respawn();
+  if (player.position.y < world.voidY) respawn();
   levi.root.position.copy(player.position);
   levi.update(dt, Math.hypot(player.velocity.x, player.velocity.z), !player.grounded, boosted, game.completed, dashing);
   collectCubes();
@@ -305,7 +345,8 @@ function animate() {
   }
   interactQueued = false;
   if (game.started) updateCamera(dt);
-  renderer.render(scene, camera);
+  updateBlobShadow();
+  composer.render(dt);
 }
 
 window.addEventListener('keydown', (event) => {
@@ -348,6 +389,8 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.8));
+  composer.setPixelRatio(renderer.getPixelRatio());
+  composer.setSize(innerWidth, innerHeight);
 });
 
 for (const button of document.querySelectorAll('[data-control]')) {
@@ -378,12 +421,12 @@ camera.position.set(0, 6.5, 24.5);
 camera.lookAt(0, 2, 10);
 cameraAim.set(player.position.x, player.position.y + 1.5, player.position.z);
 levi.root.position.copy(player.position);
-levi.ready.then(() => {
+Promise.all([levi.ready, world.ready]).then(() => {
   ready = true;
   $('#loading').classList.add('hidden');
   $('#intro').classList.remove('hidden');
 }).catch((error) => {
-  console.error('Falha ao carregar o modelo original do Levi:', error);
-  $('#loading').innerHTML = '<div class="load-error"><h2>Não foi possível carregar levi.glb</h2><p>Execute o jogo por um servidor local (npm run dev), não abrindo o HTML diretamente.</p></div>';
+  console.error('Falha ao carregar os modelos 3D do jogo:', error);
+  $('#loading').innerHTML = '<div class="load-error"><h2>Não foi possível carregar os modelos 3D</h2><p>Execute o jogo por um servidor local (npm run dev), não abrindo o HTML diretamente.</p></div>';
 });
 animate();

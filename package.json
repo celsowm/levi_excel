@@ -9,12 +9,14 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test",
     "predev": "node scripts/restore-model.mjs",
-    "prebuild": "node scripts/restore-model.mjs"
+    "prebuild": "node scripts/restore-model.mjs",
+    "world": "node scripts/build-world.mjs"
   },
   "dependencies": {
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "vite": "^6.1.0"
   }
 }
