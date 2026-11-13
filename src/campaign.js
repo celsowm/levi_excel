@@ -219,7 +219,7 @@ export const MISSIONS = {
 
 export const STAGES = [
   {
-    id: '1-1', name: 'Jardim e Recepção', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: '1-2', par: 240,
+    id: '1-1', name: 'Jardim e Recepção', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: '1-2', par: 90,
     intro: 'Explore o jardim, ajude o drone da recepção e chegue ao mezanino.',
     goals: [
       { id: 'm00', kind: 'mission', mission: 'm00', label: 'BALCÃO DE RECEPÇÃO', objective: 'Entre no saguão e ajude o drone da recepção: encontre o registro ATD-104.' },
@@ -229,7 +229,7 @@ export const STAGES = [
     ],
   },
   {
-    id: '1-2', name: 'Galeria da Fila', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: '1-3', par: 150,
+    id: '1-2', name: 'Galeria da Fila', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: '1-3', par: 50,
     intro: 'Atravesse as esteiras e organize os elevadores para subir.',
     goals: [
       { id: 'm02', kind: 'mission', mission: 'm02', label: 'TERMINAL DA FILA', objective: 'Passe pelas esteiras e pela barreira até o terminal da fila.' },
@@ -237,7 +237,7 @@ export const STAGES = [
     ],
   },
   {
-    id: '1-3', name: 'Átrio de Dados', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: null, par: 210,
+    id: '1-3', name: 'Átrio de Dados', world: 'WORLD 01 · RECEPÇÃO INTELIGENTE', next: null, par: 70,
     intro: 'Cruze o vão de dados e religue o elevador da Central.',
     goals: [
       { id: 'm03', kind: 'mission', mission: 'm03', label: 'TERMINAL DO FILTRO', objective: 'Vença o corredor do dash e ligue as plataformas no terminal do filtro.' },

@@ -1,4 +1,4 @@
-// Gameplay view of a level exported by art/blender/build_world01.py. Pure data and
+// Gameplay view of a stage exported by art/blender/build.py. Pure data and
 // geometry: no DOM, renderer or Three.js dependency, so tests can load it directly.
 import { boxCollider, moveWithCollisions, shortenCameraArm } from './collisions.js';
 
@@ -6,7 +6,8 @@ export function createLevel(data) {
   const toBox = (c) => boxCollider(c.id, c.x, c.z, c.width, c.depth, c.minY, c.maxY);
   // Camera-only volumes (hanging signs) stop the orbit camera but never Levi.
   const colliders = data.colliders.filter((c) => !c.cameraOnly).map(toBox);
-  const cameraColliders = colliders.concat(data.colliders.filter((c) => c.cameraOnly).map(toBox));
+  // Player-only volumes (glass facades) let the camera look in from outside.
+  const cameraColliders = data.colliders.filter((c) => !c.playerOnly).map(toBox);
   const { bounds } = data;
 
   // Highest floor slab under (x, z); optional slabs (the bridge) need their flag.

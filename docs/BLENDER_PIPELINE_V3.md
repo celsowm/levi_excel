@@ -1,5 +1,11 @@
 # World 01 no Blender: pipeline de arte v3
 
+> **Atualização v4:** o mundo único `build_world01.py` foi dividido em três fases
+> (`art/blender/stage_1_*.py`) sobre um kit comum (`levi_kit.py`) e um arquivo de
+> prefabs (`props.py`), com driver `build.py`. Saídas em `public/stages/` e
+> `src/data/stages/`. Veja [WORLD01_STAGES_V4.md](WORLD01_STAGES_V4.md). As convenções
+> abaixo (prefixos de malha, colisão explícita, bake) continuam valendo.
+
 O cenário do World 01 (Recepção Inteligente) deixou de ser montado com primitivas
 do Three.js. A **fonte da verdade** do nível agora é `art/blender/build_world01.py`.
 Esse script monta a cena inteira no Blender, faz o bake da iluminação no Cycles e

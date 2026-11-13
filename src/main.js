@@ -3,14 +3,15 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { createWorld } from './world.js';
 import { createLevi } from './character.js';
-import { readMovementInput, smoothVelocity } from './movement.js';
-import { TRAVERSAL, cameraRelativeMovement, createTraversal, jumpInput, advanceTimers, consumeJump, landed, startDash, isDashing } from './platforming.js';
-import { createMissionUI } from './missions.js';
-import { createReceptionMissionUI } from './reception-mission.js';
-import './reception.css';
+import { readMovementInput } from './movement.js';
+import { setupScene, loadStage } from './stage.js';
+import { createPlayer } from './player.js';
+import { createSheetPanel } from './sheet-ui.js';
+import { MISSIONS, STAGES, stageById } from './campaign.js';
+import { createRun, createSave, medal, formatTime } from './progress.js';
 import './style.css';
+import './sheet-ui.css';
 
 const $ = (selector) => document.querySelector(selector);
 const canvas = $('#game');
@@ -23,8 +24,8 @@ renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 130);
-const world = createWorld(scene, renderer);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 160);
+setupScene(scene, renderer);
 const levi = createLevi(scene);
 // Multisampled HDR target keeps edges clean while light strips feed the bloom.
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight,
@@ -37,26 +38,36 @@ composer.addPass(new OutputPass());
 const blobShadow = createBlobShadow();
 scene.add(blobShadow);
 const clock = new THREE.Clock();
-const traversal = createTraversal();
-const courseFacing = new THREE.Vector3(0, 0, -1);
+const save = createSave();
+
+// mode: menu | loading | playing | paused | sheet | results
+const game = { mode: 'menu', stage: null, run: null, player: null, toastTimeout: null, near: null, told: new Set() };
+const pressed = new Set();
+const touch = new Set();
+const queued = { jump: false, dash: false, interact: false };
 const cameraTarget = new THREE.Vector3();
 const cameraAim = new THREE.Vector3();
 const cameraAimTarget = new THREE.Vector3();
-const player = { position: new THREE.Vector3(...world.spawns.start), velocity: new THREE.Vector3(), speed: 4.8, vy: 0, grounded: true };
-const game = { started: false, completed: false, receptionSolved: false, filterSolved: false, sumSolved: false,
-  courseDone: false, courseCheckpoint: false, barrierBroken: false,
-  cubes: 0, reachedFarSide: false, toastTimeout: null };
-const pressed = new Set();
-const touch = new Set();
-let jumpQueued = false;
-let dashQueued = false;
-let interactQueued = false;
+const projected = new THREE.Vector3();
 let cameraYaw = 0;
 let cameraPitch = 0.36;
 let orbitPointer = null;
 let elapsed = 0;
-let heldNear = null;
-let ready = false;
+
+const panel = createSheetPanel($('#sheet-panel'), {
+  onSolve(missionId) {
+    const goal = game.run.solveMission(missionId);
+    levi.play('Comemorar');
+    const mission = MISSIONS[missionId];
+    toast(goal ? `${mission.code} CONCLUÍDA · ${mission.skill.toUpperCase()}` : `DESAFIO DO MESTRE CONCLUÍDO! ${mission.skill}`, 4200);
+    updateObjective();
+  },
+  onClose() {
+    pressed.clear();
+    touch.clear();
+    if (game.mode === 'sheet') game.mode = 'playing';
+  },
+});
 
 function toast(message, duration = 3300) {
   const target = $('#toast');
@@ -65,100 +76,303 @@ function toast(message, duration = 3300) {
   if (game.toastTimeout) clearTimeout(game.toastTimeout);
   game.toastTimeout = setTimeout(() => target.classList.add('hidden'), duration);
 }
-function setObjective() {
-  if (game.completed) return;
-  if (!game.receptionSolved) {
-    $('#objective').textContent = 'Ajude o drone no balcão: encontre o registro ATD-104.';
-    $('#step').textContent = '00 / 03';
-    $('#waypoint span').textContent = 'BALCÃO DE RECEPÇÃO';
-  } else if (!game.filterSolved) {
-    $('#objective').textContent = game.courseDone
-      ? 'Circuito concluído! Use o terminal do filtro para liberar a ponte.'
-      : 'Experimente dash, salto duplo e o circuito de plataforma antes do filtro.';
-    $('#step').textContent = '01 / 03';
-    $('#waypoint span').textContent = game.courseDone ? 'TERMINAL DO FILTRO' : 'CIRCUITO DO LEVI →';
-  } else if (!game.sumSolved) {
-    $('#objective').textContent = 'Atravesse a ponte e restaure a energia do elevador.';
-    $('#step').textContent = '02 / 03';
-    $('#waypoint span').textContent = 'TERMINAL SOMA';
-  } else {
-    $('#objective').textContent = 'Energia restaurada! Vá até o elevador principal.';
-    $('#step').textContent = '03 / 03';
-    $('#waypoint span').textContent = 'ELEVADOR';
+const once = (key, message, duration) => {
+  if (game.told.has(key)) return;
+  game.told.add(key);
+  toast(message, duration);
+};
+
+// ------------------------------------------------------------------ stage flow
+function renderStageSelect() {
+  const list = $('#stage-select');
+  list.innerHTML = STAGES.map((s, i) => {
+    const unlocked = save.isUnlocked(s.id);
+    const best = save.data.best[s.id];
+    const played = best !== undefined;
+    const cubes = save.data.cubes[s.id]?.length ?? 0;
+    const secrets = save.data.secrets[s.id]?.length ?? 0;
+    return `<article class="stage-card${unlocked ? '' : ' locked'}">
+      <span class="stage-num">${s.id}</span>
+      <div class="stage-info"><strong>${s.name}</strong><small>${unlocked ? s.intro : 'Conclua a fase anterior para liberar.'}</small>
+        ${played ? `<span class="stage-stats">◆ ${cubes} · ★ ${secrets}${best ? ` · ◷ ${formatTime(best)} (${medal(best, s.par)})` : ''}</span>` : ''}</div>
+      <div class="stage-buttons">
+        <button type="button" class="primary-btn small" data-play="${s.id}" ${unlocked ? '' : 'disabled'}>${i === 0 && !played ? 'INICIAR' : 'JOGAR'}</button>
+        ${played ? `<button type="button" class="ghost-btn" data-trial="${s.id}" title="Missões já resolvidas: só a corrida">◷</button>` : ''}
+      </div></article>`;
+  }).join('');
+}
+
+async function startStage(id, { timeTrial = false } = {}) {
+  game.mode = 'loading';
+  panel.close();
+  for (const id of ['#intro', '#results', '#pause', '#hud', '#marker', '#prompt']) $(id).classList.add('hidden');
+  $('#loading').classList.remove('hidden');
+  $('#loading-detail').textContent = `Fase ${id} · ${stageById(id).name}`;
+  game.stage?.dispose();
+  game.stage = null;
+  const stage = await loadStage(id, scene, renderer);
+  const run = createRun(id, { timeTrial });
+  run.flags.goalsDone = run.done;
+  game.stage = stage;
+  game.run = run;
+  game.player = createPlayer(stage);
+  game.player.placeAt(stage.spawn);
+  game.told = new Set();
+  cameraYaw = stage.spawn.yaw;
+  cameraPitch = 0.36;
+  levi.root.position.set(stage.spawn.x, stage.spawn.y, stage.spawn.z);
+  levi.root.rotation.y = cameraYaw + Math.PI;
+  camera.position.set(stage.spawn.x + Math.sin(cameraYaw) * 7, stage.spawn.y + 4, stage.spawn.z + Math.cos(cameraYaw) * 7);
+  cameraAim.set(stage.spawn.x, stage.spawn.y + 1.5, stage.spawn.z);
+  stage.update(0, 0, run.flags, game.player.state);
+
+  $('#hud-stage').textContent = id;
+  $('#hud-stage-name').textContent = stage.data.name.toUpperCase();
+  $('#cubes').textContent = '0';
+  $('#cubes-total').textContent = `/ ${stage.totals.cubes}`;
+  $('#secrets').textContent = '0';
+  $('#secrets-total').textContent = `/ ${stage.totals.secrets}`;
+  $('#hud').classList.toggle('trial', timeTrial);
+  $('#loading').classList.add('hidden');
+  $('#hud').classList.remove('hidden');
+  if (matchMedia('(pointer: coarse)').matches) $('#touch-controls').classList.remove('hidden');
+  else {
+    $('#controls-help').classList.remove('hidden', 'collapsed');
+    setTimeout(() => $('#controls-help').classList.add('collapsed'), 9000);
+  }
+  updateObjective();
+  toast(timeTrial ? `CONTRA O RELÓGIO · ouro em ${formatTime(run.stage.par)}. Vai!` : `${id} · ${run.stage.intro}`, 5200);
+  game.mode = 'playing';
+}
+
+function updateObjective() {
+  const goal = game.run.currentGoal();
+  $('#objective').textContent = goal ? goal.objective : 'Fase concluída!';
+  $('#hud-goal-tag').textContent = goal ? goal.label : 'CONCLUÍDO';
+}
+
+// Where the current goal lives in the world (for the marker and the prompt).
+function goalTarget() {
+  const goal = game.run?.currentGoal();
+  if (!goal) return null;
+  const { entities } = game.stage;
+  const e = goal.kind === 'mission'
+    ? entities.list.find((x) => x.type === 'terminal' && x.mission === goal.mission)
+    : entities.byId.get(goal.entity);
+  return e ? { x: e.x, y: (e.y ?? 0) + (goal.kind === 'mission' ? 3.2 : 2.2), z: e.z, label: goal.label } : null;
+}
+
+function finishStage() {
+  const { run, stage } = game;
+  run.finished = true;
+  game.mode = 'results';
+  levi.play('Comemorar');
+  const result = save.recordRun(run, stage.totals);
+  $('#results-title').textContent = `${run.stage.id} · ${run.stage.name}`;
+  $('#results-eyebrow').textContent = run.stage.next ? '✦ FASE CONCLUÍDA ✦' : '✦ WORLD 01 CONCLUÍDO ✦';
+  $('#results-time').textContent = formatTime(run.time);
+  const m = medal(run.time, run.stage.par);
+  $('#results-medal').textContent = run.timeTrial ? `${m.toUpperCase()}${result.record ? ' · RECORDE!' : ''}` : `ouro em ${formatTime(run.stage.par)} no contra o relógio`;
+  $('#results-medal').className = `medal ${run.timeTrial ? m : ''}`;
+  $('#results-cubes').textContent = `${run.cubes.size} / ${stage.totals.cubes}`;
+  $('#results-secrets').textContent = `${run.secrets.size} / ${stage.totals.secrets}`;
+  $('#results-skills').innerHTML = run.stage.goals.filter((g) => g.mission)
+    .map((g) => `<span>✓ ${MISSIONS[g.mission].skill.toUpperCase()}</span>`).join('') +
+    (run.flags.mastery ? '<span>★ MESTRE DOS DADOS</span>' : '');
+  $('#results-next').classList.toggle('hidden', !run.stage.next);
+  for (const id of ['#hud', '#marker', '#prompt', '#touch-controls', '#controls-help']) $(id).classList.add('hidden');
+  $('#results').classList.remove('hidden');
+}
+
+function showMenu() {
+  game.mode = 'menu';
+  panel.close();
+  renderStageSelect();
+  for (const id of ['#results', '#pause', '#hud', '#marker', '#prompt', '#touch-controls', '#controls-help']) $(id).classList.add('hidden');
+  $('#intro').classList.remove('hidden');
+}
+
+function setPaused(paused) {
+  if (paused && game.mode === 'playing') {
+    game.mode = 'paused';
+    $('#pause-stage').textContent = game.run.stage.id;
+    $('#pause').classList.remove('hidden');
+    pressed.clear();
+  } else if (!paused && game.mode === 'paused') {
+    game.mode = 'playing';
+    $('#pause').classList.add('hidden');
   }
 }
-const missions = createMissionUI({
-  onFilterSolved() {
-    game.filterSolved = true;
-    setObjective();
-    levi.play('Comemorar');
-    toast('PONTE RESTAURADA! Use a passagem para chegar ao Arquivo Inteligente.', 5200);
-  },
-  onSumSolved() {
-    game.sumSolved = true;
-    setObjective();
-    levi.play('Comemorar');
-    toast('ENERGIA RESTAURADA! O elevador está pronto.', 4500);
-  },
-  onClosed() {
-    pressed.clear();
-    touch.clear();
-  },
-});
 
-const receptionMission = createReceptionMissionUI({
-  onSolved() {
-    game.receptionSolved = true;
-    world.setReceptionSolved(true);
-    setObjective();
-    levi.play('Comemorar');
-    toast('MUITO BEM! Você aprendeu linhas, colunas e registros. Siga o drone!', 5200);
-  },
-  onClosed() { pressed.clear(); touch.clear(); },
-});
-function isBlocked() {
-  return !game.started || game.completed || missions.isOpen() || receptionMission.isOpen();
+function respawn(message) {
+  const spot = game.run.checkpoint ?? game.stage.spawn;
+  game.player.placeAt(spot);
+  levi.root.position.set(spot.x, spot.y, spot.z);
+  if (message) toast(message, 2400);
 }
-function complete() {
-  if (game.completed) return;
-  game.completed = true;
-  levi.play('Comemorar');
-  $('#victory-cubes').textContent = `◆ ${game.cubes}/8 CUBOS`;
-  $('#completion').classList.remove('hidden');
-  $('#prompt').classList.add('hidden');
-  $('#touch-controls').classList.add('hidden');
-  $('#waypoint').classList.add('hidden');
+
+// ------------------------------------------------------------------ gameplay
+function handleEvents(events) {
+  const { run } = game;
+  for (const ev of events) {
+    switch (ev.type) {
+      case 'cube':
+        run.cubes.add(ev.id);
+        $('#cubes').textContent = String(run.cubes.size);
+        if (run.cubes.size === game.stage.totals.cubes) toast('TODOS OS CUBOS DESTA FASE! ◆', 3000);
+        break;
+      case 'secret':
+        run.secrets.add(ev.id);
+        $('#secrets').textContent = String(run.secrets.size);
+        levi.play('Comemorar');
+        toast(`★ SEGREDO ENCONTRADO: ${ev.label ?? ev.id}`, 3600);
+        break;
+      case 'checkpoint':
+        if (!ev.entity.reached) {
+          ev.entity.reached = true;
+          if (ev.id !== 'start' && ev.id !== 'portico') toast('CHECKPOINT ✓', 1500);
+        }
+        run.checkpoint = { x: ev.entity.x, y: ev.entity.y, z: ev.entity.z };
+        break;
+      case 'barrier': toast('BARREIRA ROMPIDA!', 1600); break;
+      case 'pad': once('pad', 'IMPULSO! Aperte Espaço no ar para o salto duplo.', 2600); break;
+      case 'fan': once('fan', 'Coluna de ar! Solte-se para cima e vá até a sacada.', 2600); break;
+      case 'bump': once('bump', 'Cuidado com os drones-sentinela: eles empurram o Levi.', 2600); break;
+      case 'zap': respawn('O scanner detectou o Levi! Pule por cima do feixe.'); return;
+      case 'fall': respawn('Levi voltou ao último checkpoint.'); return;
+      default: break;
+    }
+  }
 }
-function interact() {
-  if (isBlocked()) return;
-  if (heldNear === 'reception' && !game.receptionSolved) receptionMission.open();
-  else if (heldNear === 'filter' && game.receptionSolved && !game.filterSolved) missions.open('filter');
-  else if (heldNear === 'sum' && game.filterSolved && !game.sumSolved) missions.open('sum');
-  else if (heldNear === 'elevator' && game.sumSolved) complete();
-}
+
 function updateInteraction() {
-  heldNear = null;
-  const p = player.position;
-  const distance = (obj) => Math.hypot(p.x - obj.x, p.z - obj.z);
-  if (!game.receptionSolved && distance(world.receptionTerminal) < 4.1) heldNear = 'reception';
-  else if (game.receptionSolved && !game.filterSolved && distance(world.filterTerminal) < 3.1) heldNear = 'filter';
-  else if (game.filterSolved && !game.sumSolved && distance(world.sumTerminal) < 3.1) heldNear = 'sum';
-  else if (game.sumSolved && distance(world.elevator) < 3.7) heldNear = 'elevator';
+  const { run, stage, player } = game;
+  const p = player.state;
+  game.near = null;
+  for (const e of stage.entities.ofType('terminal')) {
+    if (Math.hypot(p.x - e.x, p.z - e.z) < (e.radius ?? 3) && Math.abs(p.y - e.y) < 2.5) game.near = e;
+  }
+  // The follow goal completes when the courier drone reaches the end with Levi.
+  const goal = run.currentGoal();
+  if (goal?.kind === 'follow' && stage.entities.byId.get(goal.entity)?.arrived) {
+    run.completeGoal(goal.id);
+    toast('ENTREGA FEITA! O drone abriu o terminal da passarela.', 3600);
+    updateObjective();
+  }
+  stage.setExitOpen(run.exitOpen());
+  const exit = stage.entities.ofType('exit')[0];
+  if (exit && run.exitOpen() && exit.near(p, exit.radius ?? 1.7, 2.6)) {
+    run.completeGoal('exit');
+    finishStage();
+    return;
+  }
   const prompt = $('#prompt');
-  if (heldNear && !isBlocked()) {
-    const labels = { reception: 'AJUDAR DRONE · LOCALIZAR REGISTRO', filter: 'ABRIR TERMINAL DE FILTRO', sum: 'ABRIR TERMINAL SOMA', elevator: 'ENTRAR NO ELEVADOR' };
-    $('#prompt-text').textContent = labels[heldNear];
+  const state = game.near ? run.missionState(game.near.mission) : null;
+  if (game.near && state !== 'solved') {
+    const mission = MISSIONS[game.near.mission];
+    $('#prompt-text').textContent = state === 'open'
+      ? `ABRIR TERMINAL · ${mission.title.toUpperCase()}`
+      : `BLOQUEADO · ${run.currentGoal()?.label ?? ''} PRIMEIRO`;
+    prompt.classList.toggle('locked', state !== 'open');
     prompt.classList.remove('hidden');
-    $('#touch-interact').classList.add('available');
+    $('#touch-interact').classList.toggle('available', state === 'open');
+    if (queued.interact && state === 'open') {
+      game.mode = 'sheet';
+      pressed.clear();
+      touch.clear();
+      prompt.classList.add('hidden');
+      panel.open(run, game.near.mission);
+    }
   } else {
     prompt.classList.add('hidden');
     $('#touch-interact').classList.remove('available');
   }
 }
+
+function playerInput() {
+  const down = (key) => pressed.has(key) || touch.has(key);
+  const keys = readMovementInput(down);
+  const input = { x: keys.x, z: keys.z, yaw: cameraYaw, sprint: down('ShiftLeft') || down('ShiftRight'),
+    jump: queued.jump, dash: queued.dash };
+  queued.jump = queued.dash = false;
+  return input;
+}
+
+function updatePlayer(dt) {
+  const input = playerInput();
+  const result = game.player.step(dt, input, game.run.flags);
+  const p = game.player.state;
+  handleEvents(result.events);
+  levi.root.position.set(p.x, p.y, p.z);
+  levi.face({ x: p.vx, z: p.vz }, dt);
+  levi.update(dt, result.moving, !p.grounded, input.sprint, false, result.dashing);
+  const t = p.traversal;
+  const readiness = $('#dash-ready');
+  readiness.textContent = t.cooldown > 0 ? `DASH ${t.cooldown.toFixed(1)}s` : 'DASH PRONTO';
+  readiness.classList.toggle('cooling', t.cooldown > 0);
+}
+
+function updateCamera(dt) {
+  const p = game.player.state;
+  const view = game.mode === 'sheet' ? game.near?.view : null;
+  if (view) {
+    // Terminal view: frame what the spreadsheet controls, beside the docked panel.
+    cameraTarget.set(...view.pos);
+    cameraAimTarget.set(...view.look);
+  } else {
+    const dist = innerWidth < 700 ? 7.9 : 7.1;
+    const horizontal = Math.cos(cameraPitch) * dist;
+    cameraAimTarget.set(p.x, p.y + 1.48, p.z);
+    cameraTarget.set(p.x + Math.sin(cameraYaw) * horizontal, p.y + 1.45 + Math.sin(cameraPitch) * dist,
+      p.z + Math.cos(cameraYaw) * horizontal);
+    const corrected = game.stage.level.resolveCamera(cameraAimTarget, cameraTarget);
+    cameraTarget.set(corrected.x, corrected.y, corrected.z);
+  }
+  const k = 1 - Math.exp(-dt * (view ? 4 : 10));
+  camera.position.lerp(cameraTarget, k);
+  cameraAim.lerp(cameraAimTarget, k);
+  camera.lookAt(cameraAim);
+}
+
+function updateMarker() {
+  const marker = $('#marker');
+  const target = game.mode === 'playing' ? goalTarget() : null;
+  if (!target) { marker.classList.add('hidden'); return; }
+  const p = game.player.state;
+  const distance = Math.hypot(target.x - p.x, target.z - p.z);
+  projected.set(target.x, target.y, target.z).project(camera);
+  const behind = projected.z > 1;
+  let x = (projected.x * 0.5 + 0.5) * innerWidth;
+  let y = (-projected.y * 0.5 + 0.5) * innerHeight;
+  if (behind) { x = innerWidth - x; y = innerHeight - 40; }
+  const margin = 46;
+  const clamped = behind || x < margin || x > innerWidth - margin || y < 110 || y > innerHeight - margin;
+  x = THREE.MathUtils.clamp(x, margin, innerWidth - margin);
+  y = THREE.MathUtils.clamp(y, 110, innerHeight - margin);
+  marker.classList.remove('hidden');
+  marker.classList.toggle('edge', clamped);
+  marker.style.transform = `translate(${x}px, ${y}px)`;
+  marker.querySelector('.marker-label').textContent = target.label;
+  marker.querySelector('.marker-dist').textContent = `${Math.round(distance)} m`;
+  marker.classList.toggle('close', distance < 4);
+}
+
+function updateBlobShadow() {
+  if (!game.player) { blobShadow.visible = false; return; }
+  const p = game.player.state;
+  const ground = game.player.groundAt(p.x, p.z, p.y + 0.05);
+  blobShadow.visible = ground !== null;
+  if (!ground) return;
+  const fade = THREE.MathUtils.clamp(1 - (p.y - ground.height) / 6, 0.3, 1);
+  blobShadow.position.set(p.x, ground.height + 0.012, p.z);
+  blobShadow.scale.setScalar(0.55 + fade * 0.45);
+  blobShadow.material.opacity = 0.75 * fade;
+}
+
 function createBlobShadow() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 128;
-  const g = canvas.getContext('2d');
+  const shadowCanvas = document.createElement('canvas');
+  shadowCanvas.width = shadowCanvas.height = 128;
+  const g = shadowCanvas.getContext('2d');
   const gradient = g.createRadialGradient(64, 64, 4, 64, 64, 62);
   gradient.addColorStop(0, 'rgba(8,18,24,0.85)');
   gradient.addColorStop(0.55, 'rgba(8,18,24,0.42)');
@@ -166,223 +380,71 @@ function createBlobShadow() {
   g.fillStyle = gradient;
   g.fillRect(0, 0, 128, 128);
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), new THREE.MeshBasicMaterial({
-    map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false,
+    map: new THREE.CanvasTexture(shadowCanvas), transparent: true, depthWrite: false,
     polygonOffset: true, polygonOffsetFactor: -2,
   }));
   mesh.rotation.x = -Math.PI / 2;
   mesh.renderOrder = 1;
   return mesh;
 }
-function updateBlobShadow() {
-  const p = player.position;
-  const ground = world.getGroundHeight(p.x, p.z, game.filterSolved, p.y + 0.05);
-  blobShadow.visible = ground !== null;
-  if (ground === null) return;
-  const fade = THREE.MathUtils.clamp(1 - (p.y - ground) / 6, 0.3, 1);
-  blobShadow.position.set(p.x, ground + 0.012, p.z);
-  blobShadow.scale.setScalar(0.55 + fade * 0.45);
-  blobShadow.material.opacity = 0.75 * fade;
-}
-function respawn() {
-  const spawn = game.reachedFarSide ? world.spawns.archive : game.filterSolved ? world.spawns.bridge
-    : game.courseCheckpoint ? world.spawns.course : world.spawns.start;
-  player.position.set(...spawn);
-  player.vy = 0;
-  player.velocity.set(0, 0, 0);
-  Object.assign(traversal, createTraversal());
-  player.grounded = true;
-  levi.root.position.copy(player.position);
-  toast('Levi voltou ao checkpoint. Seu progresso continua salvo nesta partida.', 2400);
-}
-function collectCubes() {
-  for (const cube of world.collectibles) {
-    if (cube.collected) continue;
-    if (Math.hypot(player.position.x - cube.x, player.position.z - cube.z) < 0.92 &&
-        Math.abs(player.position.y + 1 - cube.mesh.position.y) < 1.8) {
-      cube.collected = true;
-      cube.mesh.visible = false;
-      cube.halo.visible = false;
-      game.cubes++;
-      $('#cubes').textContent = String(game.cubes);
-      if (game.cubes === 8) toast('EXPLORADOR MÁXIMO! Você coletou todos os cubos de dados.');
-    }
-  }
-}
-function movePlayer(dt) {
-  const down = (key) => pressed.has(key) || touch.has(key);
-  const keys = readMovementInput(down);
-  const move = cameraRelativeMovement(keys.x, keys.z, cameraYaw);
-  const hasInput = Math.hypot(move.x, move.z) > 0.01;
-  if (hasInput) courseFacing.set(move.x, 0, move.z);
-  const boosted = down('ShiftLeft') || down('ShiftRight');
 
-  advanceTimers(traversal, dt, player.grounded);
-  if (jumpQueued) jumpInput(traversal);
-  jumpQueued = false;
-  if (dashQueued) {
-    const target = hasInput ? move : { x: courseFacing.x, z: courseFacing.z };
-    if (startDash(traversal, target.x, target.z)) toast('DASH! Atravesse a barreira rosa ou alcance uma plataforma.', 1700);
-  }
-  dashQueued = false;
-  const jumpingNow = consumeJump(traversal, player.grounded);
-  if (jumpingNow > 0) {
-    player.vy = jumpingNow;
-    player.grounded = false;
-  }
-
-  const dashing = isDashing(traversal);
-  const speed = player.speed * (boosted ? 1.45 : 1);
-  player.velocity.x = dashing ? traversal.dashX * TRAVERSAL.dashSpeed
-    : smoothVelocity(player.velocity.x, move.x * speed, dt, hasInput ? 15 : 22);
-  player.velocity.z = dashing ? traversal.dashZ * TRAVERSAL.dashSpeed
-    : smoothVelocity(player.velocity.z, move.z * speed, dt, hasInput ? 15 : 22);
-
-  if (!dashing && !hasInput && Math.hypot(player.velocity.x, player.velocity.z) < 0.04) {
-    player.velocity.set(0, 0, 0);
-  }
-  const previous = player.position.clone();
-  const requestedX = previous.x + player.velocity.x * dt;
-  const requestedZ = previous.z + player.velocity.z * dt;
-  const collision = world.courseCollision(previous, { x: requestedX, z: requestedZ }, previous.y, dashing);
-  if (collision === 'blocked') {
-    player.velocity.set(0, 0, 0);
-  } else {
-    // Swept capsule-vs-AABB collision: slides along desks, furniture, pillars,
-    // terminal shells, platform supports and the elevator door.
-    const resolved = world.resolvePlayerMove(previous,
-      player.velocity.x * dt, player.velocity.z * dt, previous.y);
-    player.position.x = resolved.x;
-    player.position.z = resolved.z;
-    if (resolved.hitX) player.velocity.x = 0;
-    if (resolved.hitZ) player.velocity.z = 0;
-    if (collision === 'broken' && !game.barrierBroken) {
-      game.barrierBroken = true;
-      toast('BARREIRA ROMPIDA! O caminho está livre.', 3000);
-    }
-  }
-  levi.face(player.velocity, dt);
-
-  // Land on elevated platforms only if Levi's feet are high enough to reach
-  // the surface. Ground detection uses the last foot height to avoid teleporting
-  // from the floor onto platforms directly above the character.
-  const surface = world.getGroundHeight(player.position.x, player.position.z, game.filterSolved, previous.y);
-  if (player.grounded && surface !== null && Math.abs(surface - player.position.y) < 0.3) {
-    player.position.y = surface;
-    player.vy = 0;
-  } else {
-    player.grounded = false;
-    player.vy -= TRAVERSAL.gravity * dt;
-    player.position.y += player.vy * dt;
-    if (surface !== null && player.vy <= 0 && player.position.y <= surface && previous.y >= surface - 0.2) {
-      player.position.y = surface;
-      player.vy = 0;
-      player.grounded = true;
-      landed(traversal);
-    }
-  }
-  if (player.grounded && world.courseJumpPad(player.position.x, player.position.z) && traversal.padCooldown === 0) {
-    player.vy = 12.6;
-    player.grounded = false;
-    traversal.jumps = 1;
-    traversal.coyote = 0;
-    traversal.padCooldown = 1.0;
-    if (!game.courseCheckpoint) toast('IMPULSO! Salte novamente no ar para alcançar as plataformas.', 3100);
-  }
-  if (!game.courseCheckpoint && player.position.x > 6.1 && player.position.z < 13.4 && player.position.y > 1.8) {
-    game.courseCheckpoint = true;
-    toast('CHECKPOINT! Use salto duplo e dash para avançar.', 2600);
-  }
-  if (!game.courseDone && world.courseFinish(player.position)) {
-    game.courseDone = true;
-    levi.play('Comemorar');
-    setObjective();
-    toast('CIRCUITO CONCLUÍDO! Agora pratique Excel no terminal do filtro.', 4700);
-  }
-  if (world.courseHazard(player.position, elapsed, dashing)) {
-    respawn();
-    return;
-  }
-  if (game.filterSolved && player.position.z < -8.5 && surface !== null) game.reachedFarSide = true;
-  if (player.position.y < world.voidY) respawn();
-  levi.root.position.copy(player.position);
-  levi.update(dt, Math.hypot(player.velocity.x, player.velocity.z), !player.grounded, boosted, game.completed, dashing);
-  collectCubes();
-  const readiness = $('#dash-ready');
-  if (readiness) {
-    readiness.textContent = traversal.cooldown > 0 ? `DASH ${traversal.cooldown.toFixed(1)}s` : 'DASH PRONTO';
-    readiness.classList.toggle('cooling', traversal.cooldown > 0);
-  }
-}
-function updateCamera(dt) {
-  const p = player.position;
-  const dist = innerWidth < 700 ? 7.9 : 7.1;
-  const horizontal = Math.cos(cameraPitch) * dist;
-  const vertical = Math.sin(cameraPitch) * dist;
-  cameraTarget.set(
-    p.x + Math.sin(cameraYaw) * horizontal,
-    p.y + 1.45 + vertical,
-    p.z + Math.cos(cameraYaw) * horizontal
-  );
-  cameraAimTarget.set(p.x, p.y + 1.48, p.z);
-  // Trace the camera arm against the same solid props as the player.
-  const corrected = world.resolveCamera(cameraAimTarget, cameraTarget);
-  cameraTarget.set(corrected.x, corrected.y, corrected.z);
-  camera.position.lerp(cameraTarget, 1 - Math.exp(-dt * 10));
-  cameraAim.lerp(cameraAimTarget, 1 - Math.exp(-dt * 10));
-  camera.lookAt(cameraAim);
-}
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 1 / 30);
   elapsed += dt;
-  world.update(elapsed, dt, game.filterSolved, game.sumSolved);
-  if (game.started && !isBlocked()) {
-    movePlayer(dt);
-    if (interactQueued) interact();
-    updateInteraction();
-  } else if (game.started) {
-    levi.update(dt, 0, false, false, game.completed, false);
+  const { stage, run } = game;
+  if (stage && run) {
+    const active = game.mode === 'playing' || game.mode === 'sheet';
+    if (active) stage.update(elapsed, dt, run.flags, game.player.state);
+    if (game.mode === 'playing') {
+      run.time += dt;
+      updatePlayer(dt);
+      if (game.mode === 'playing') updateInteraction();
+    } else {
+      levi.update(dt, 0, false, false, game.mode === 'results', false);
+    }
+    if (game.mode === 'sheet') run.time += dt;
+    $('#timer').textContent = formatTime(run.time);
+    updateCamera(dt);
+    updateMarker();
   }
-  interactQueued = false;
-  if (game.started) updateCamera(dt);
+  queued.interact = false;
   updateBlobShadow();
   composer.render(dt);
 }
 
+// ------------------------------------------------------------------ input
+const typing = () => game.mode !== 'playing' && game.mode !== 'paused';
 window.addEventListener('keydown', (event) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code) && !missions.isOpen() && !receptionMission.isOpen()) event.preventDefault();
-  if (!game.started || missions.isOpen() || receptionMission.isOpen() || game.completed) return;
-  if (event.code === 'KeyH' && !event.repeat) {
-    $('#controls-help').classList.toggle('collapsed');
-    return;
-  }
+  if (game.mode === 'sheet' || game.mode === 'menu' || game.mode === 'loading') return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) event.preventDefault();
+  if (event.code === 'Escape' || event.code === 'KeyP') { setPaused(game.mode === 'playing'); return; }
+  if (typing() || game.mode === 'paused') return;
+  if (event.code === 'KeyH' && !event.repeat) { $('#controls-help').classList.toggle('collapsed'); return; }
   pressed.add(event.code);
-  if (event.code === 'Space' && !event.repeat) jumpQueued = true;
-  if ((event.code === 'KeyJ' || event.code === 'KeyX') && !event.repeat) dashQueued = true;
-  if (event.code === 'KeyE' && !event.repeat) interactQueued = true;
-  if (event.code === 'KeyR' && !event.repeat) respawn();
+  if (event.repeat) return;
+  if (event.code === 'Space') queued.jump = true;
+  if (event.code === 'KeyJ' || event.code === 'KeyX') queued.dash = true;
+  if (event.code === 'KeyE' || event.code === 'Enter') queued.interact = true;
+  if (event.code === 'KeyR') respawn('Levi voltou ao último checkpoint.');
 });
 window.addEventListener('keyup', (event) => pressed.delete(event.code));
 window.addEventListener('blur', () => { pressed.clear(); orbitPointer = null; });
 canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 canvas.addEventListener('pointerdown', (event) => {
-  if (isBlocked() || (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 2)) return;
+  if (game.mode !== 'playing' || (event.pointerType === 'mouse' && event.button !== 0 && event.button !== 2)) return;
   orbitPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
   canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', (event) => {
-  if (!orbitPointer || orbitPointer.id !== event.pointerId || isBlocked()) return;
-  const dx = event.clientX - orbitPointer.x;
-  const dy = event.clientY - orbitPointer.y;
-  cameraYaw -= dx * 0.006;
-  cameraPitch = THREE.MathUtils.clamp(cameraPitch + dy * 0.004, 0.16, 1.04);
+  if (!orbitPointer || orbitPointer.id !== event.pointerId || game.mode !== 'playing') return;
+  cameraYaw -= (event.clientX - orbitPointer.x) * 0.006;
+  cameraPitch = THREE.MathUtils.clamp(cameraPitch + (event.clientY - orbitPointer.y) * 0.004, 0.08, 1.1);
   orbitPointer.x = event.clientX;
   orbitPointer.y = event.clientY;
 });
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
-  canvas.addEventListener(type, (event) => {
-    if (orbitPointer?.id === event.pointerId) orbitPointer = null;
-  });
+  canvas.addEventListener(type, (event) => { if (orbitPointer?.id === event.pointerId) orbitPointer = null; });
 }
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -400,33 +462,38 @@ for (const button of document.querySelectorAll('[data-control]')) {
   button.addEventListener('pointercancel', () => touch.delete(key));
   button.addEventListener('lostpointercapture', () => touch.delete(key));
 }
-$('#touch-jump').addEventListener('pointerdown', (event) => { event.preventDefault(); jumpQueued = true; });
-$('#touch-dash').addEventListener('pointerdown', (event) => { event.preventDefault(); dashQueued = true; });
-$('#touch-interact').addEventListener('pointerdown', (event) => { event.preventDefault(); interactQueued = true; });
-$('#restart').addEventListener('click', () => window.location.reload());
-$('#start').addEventListener('click', () => {
-  if (!ready) return;
-  game.started = true;
-  $('#intro').classList.add('hidden');
-  $('#hud').classList.remove('hidden');
-  $('#waypoint').classList.remove('hidden');
-  if (matchMedia('(pointer: coarse)').matches) $('#touch-controls').classList.remove('hidden');
-  else $('#controls-help').classList.remove('hidden');
-  setObjective();
-  toast('Encontre ATD-104 na recepção à esquerda. Dash: J/X · salto duplo: Espaço ×2 · ajuda: H.', 6500);
-  setTimeout(() => $('#controls-help').classList.add('collapsed'), 9000);
-});
+$('#touch-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); queued.jump = true; });
+$('#touch-dash').addEventListener('pointerdown', (e) => { e.preventDefault(); queued.dash = true; });
+$('#touch-interact').addEventListener('pointerdown', (e) => { e.preventDefault(); queued.interact = true; });
+$('#touch-pause').addEventListener('pointerdown', (e) => { e.preventDefault(); setPaused(true); });
 
-camera.position.set(0, 6.5, 24.5);
-camera.lookAt(0, 2, 10);
-cameraAim.set(player.position.x, player.position.y + 1.5, player.position.z);
-levi.root.position.copy(player.position);
-Promise.all([levi.ready, world.ready]).then(() => {
-  ready = true;
-  $('#loading').classList.add('hidden');
-  $('#intro').classList.remove('hidden');
-}).catch((error) => {
-  console.error('Falha ao carregar os modelos 3D do jogo:', error);
-  $('#loading').innerHTML = '<div class="load-error"><h2>Não foi possível carregar os modelos 3D</h2><p>Execute o jogo por um servidor local (npm run dev), não abrindo o HTML diretamente.</p></div>';
+$('#stage-select').addEventListener('click', (event) => {
+  const play = event.target.closest('[data-play]');
+  const trial = event.target.closest('[data-trial]');
+  if (play) startStage(play.dataset.play).catch(loadFailed);
+  else if (trial) startStage(trial.dataset.trial, { timeTrial: true }).catch(loadFailed);
 });
+$('#resume').addEventListener('click', () => setPaused(false));
+$('#to-checkpoint').addEventListener('click', () => { setPaused(false); respawn(); });
+$('#restart-stage').addEventListener('click', () => startStage(game.run.stage.id, { timeTrial: game.run.timeTrial }).catch(loadFailed));
+$('#to-menu').addEventListener('click', showMenu);
+$('#results-menu').addEventListener('click', showMenu);
+$('#results-next').addEventListener('click', () => startStage(game.run.stage.next).catch(loadFailed));
+$('#results-trial').addEventListener('click', () => startStage(game.run.stage.id, { timeTrial: true }).catch(loadFailed));
+
+function loadFailed(error) {
+  console.error('Falha ao carregar a fase:', error);
+  $('#loading').classList.remove('hidden');
+  $('#loading').innerHTML = '<div class="load-error"><h2>Não foi possível carregar os modelos 3D</h2><p>Execute o jogo por um servidor local (npm run dev), não abrindo o HTML diretamente.</p></div>';
+}
+
+// Debug/QA entry: ?stage=1-2 (&trial) skips the menu.
+const params = new URLSearchParams(location.search);
+levi.ready.then(() => {
+  const direct = params.get('stage');
+  if (direct && stageById(direct)) return startStage(direct, { timeTrial: params.has('trial') });
+  $('#loading').classList.add('hidden');
+  showMenu();
+}).catch(loadFailed);
+window.__levi = { game, startStage, camera };
 animate();

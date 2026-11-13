@@ -36,9 +36,11 @@ jobs:
         run: |
           test -f dist/index.html
           test -s dist/levi.glb
-          test -s dist/world/world01.glb
-          test -s dist/world/props01.glb
-          test -s dist/world/world01-lightmap.webp
+          test -s dist/stages/props.glb
+          for id in 1-1 1-2 1-3; do
+            test -s dist/stages/$id/world.glb
+            test -s dist/stages/$id/lightmap.webp
+          done
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload build

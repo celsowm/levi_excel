@@ -13,7 +13,7 @@
     <div id="loading" class="loading-screen">
       <div class="loader-ring"></div>
       <p>Carregando o mundo do Levi<span class="dots">...</span></p>
-      <small>Preparando o modelo 3D original</small>
+      <small id="loading-detail">Preparando o modelo 3D original</small>
     </div>
 
     <div id="intro" class="intro hidden">
@@ -22,80 +22,66 @@
         <span class="eyebrow"><span class="pulse-dot"></span> PROJETO EXPERIMENTAL • PGE-RJ</span>
         <div class="intro-brand"><span class="brand-mark">L</span><span>LEVI<span class="brand-dot">.</span></span></div>
         <h1>OPERAÇÃO<br/><em>PLANILHA</em></h1>
-        <p>O sistema da PGE foi corrompido. Corra, explore e use seus conhecimentos de Excel para reconstruir as conexões e recuperar o controle da Central de Dados.</p>
-        <div class="intro-chips"><span>3D ACTION PLATFORMER</span><span>SALTO DUPLO + DASH</span><span>EXCEL NA PRÁTICA</span></div>
-        <button id="start" class="primary-btn">INICIAR MISSÃO <span>↗</span></button>
-        <div class="intro-controls">WASD: mover &nbsp;•&nbsp; Espaço (2×): salto duplo &nbsp;•&nbsp; J/X: dash &nbsp;•&nbsp; Arraste: câmera &nbsp;•&nbsp; E: interagir</div>
+        <p>O sistema da PGE foi corrompido. Corra, explore e use Excel de verdade: cada célula que você muda mexe no mundo.</p>
+        <div id="stage-select" class="stage-select" aria-label="Escolha da fase"></div>
+        <div class="intro-controls">WASD: mover &nbsp;•&nbsp; Shift: correr &nbsp;•&nbsp; Espaço (2×): salto duplo &nbsp;•&nbsp; J/X: dash &nbsp;•&nbsp; Arraste: câmera &nbsp;•&nbsp; E: terminal &nbsp;•&nbsp; Esc: pausa</div>
       </div>
-      <span class="intro-version">POC 0.3 · AVENTURA + EXCEL</span>
+      <span class="intro-version">WORLD 01 · RECEPÇÃO INTELIGENTE</span>
     </div>
 
     <header id="hud" class="hud hidden">
-      <div class="hud-brand"><span class="mini-logo">L</span><div><strong>LEVI<span class="brand-dot">.</span></strong><small>OPERAÇÃO PLANILHA</small></div></div>
-      <div class="hud-mission"><span class="hud-tag">MISSÃO ATIVA</span><p id="objective">Ajude o drone da recepção.</p></div>
-      <div class="hud-right"><div class="resource"><span class="resource-icon">◆</span><strong id="cubes">0</strong><small>/ 8</small></div><div id="step">01 / 03</div></div>
+      <div class="hud-brand"><span class="mini-logo">L</span><div><strong id="hud-stage">1-1</strong><small id="hud-stage-name">JARDIM E RECEPÇÃO</small></div></div>
+      <div class="hud-mission"><span class="hud-tag" id="hud-goal-tag">OBJETIVO</span><p id="objective"></p></div>
+      <div class="hud-right">
+        <div class="resource" title="Tempo"><span class="resource-icon time">◷</span><strong id="timer">0:00.0</strong></div>
+        <div class="resource" title="Cubos de dados"><span class="resource-icon">◆</span><strong id="cubes">0</strong><small id="cubes-total">/ 0</small></div>
+        <div class="resource" title="Segredos"><span class="resource-icon star">★</span><strong id="secrets">0</strong><small id="secrets-total">/ 0</small></div>
+      </div>
     </header>
 
+    <div id="marker" class="goal-marker hidden" aria-hidden="true"><span class="marker-arrow">▼</span><span class="marker-label"></span><small class="marker-dist"></small></div>
     <div id="toast" class="toast hidden" role="status"></div>
     <div id="prompt" class="prompt hidden"><kbd>E</kbd><span id="prompt-text">Interagir</span></div>
-    <div id="controls-help" class="controls-help hidden"><span><kbd>W A S D</kbd> MOVER</span><span><kbd>ESPAÇO ×2</kbd> SALTO DUPLO</span><span><kbd>J / X</kbd> DASH</span><span><kbd>ARRASTAR</kbd> CÂMERA</span><span><kbd>E</kbd> INTERAGIR</span><span id="dash-ready">DASH PRONTO</span></div>
-    <div id="waypoint" class="waypoint hidden">◎ <span>TERMINAL DO FILTRO</span></div>
+    <div id="controls-help" class="controls-help hidden"><span><kbd>W A S D</kbd> MOVER</span><span><kbd>SHIFT</kbd> CORRER</span><span><kbd>ESPAÇO ×2</kbd> SALTO DUPLO</span><span><kbd>J / X</kbd> DASH</span><span><kbd>E</kbd> TERMINAL</span><span><kbd>R</kbd> CHECKPOINT</span><span id="dash-ready">DASH PRONTO</span></div>
 
     <div id="touch-controls" class="touch-controls hidden" aria-label="Controles por toque">
       <div class="dpad"><button type="button" data-control="up" class="up" aria-label="Frente">▲</button><button type="button" data-control="left" class="left" aria-label="Esquerda">◀</button><button type="button" data-control="down" class="down" aria-label="Trás">▼</button><button type="button" data-control="right" class="right" aria-label="Direita">▶</button></div>
-      <div class="touch-actions"><button id="touch-interact" aria-label="Interagir">E</button><button id="touch-dash" aria-label="Dash">DASH</button><button id="touch-jump" aria-label="Pular">PULAR</button></div>
+      <div class="touch-actions"><button id="touch-pause" aria-label="Pausa">II</button><button id="touch-interact" aria-label="Interagir">E</button><button id="touch-dash" aria-label="Dash">DASH</button><button id="touch-jump" aria-label="Pular">PULAR</button></div>
     </div>
 
-    <section id="reception-dialog" class="rx-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reception-title">
-      <div id="reception-backdrop" class="rx-backdrop"></div>
-      <div class="rx-panel">
-        <div class="rx-sidebar">
-          <span class="rx-stage">MISSÃO 00 · PRIMEIRO CONTATO</span>
-          <div class="rx-icon" aria-hidden="true">⌗</div>
-          <h2 id="reception-title">Uma entrega para o Levi</h2>
-          <p>Um drone precisa levar um documento ao setor correto. O código é <strong>ATD-104</strong>.</p>
-          <p>Encontre o registro usando a <strong>coluna A</strong>, onde ficam os identificadores.</p>
-          <div class="rx-fact"><strong>LINHAS</strong> representam registros. <strong>COLUNAS</strong> guardam tipos de informação.</div>
-        </div>
-        <div class="rx-workbook">
-          <div class="rx-topbar"><span>RECEPÇÃO / ATENDIMENTOS</span><button id="reception-close" type="button" aria-label="Fechar missão">×</button></div>
-          <div class="rx-file"><strong>atendimentos.xlsx</strong><small>Localize o registro ATD-104 · selecione uma linha</small></div>
-          <table class="rx-table">
-            <thead><tr class="rx-letters"><th>#</th><th>A</th><th>B</th><th>C</th></tr><tr><th>1</th><th>ID</th><th>SETOR</th><th>ANDAR</th></tr></thead>
-            <tbody id="reception-rows"></tbody>
-          </table>
-          <p id="reception-hint-text" class="rx-hint">Cada coluna representa um tipo de informação.</p>
-          <p id="reception-feedback" class="rx-feedback" role="status">Encontre ATD-104 na coluna A.</p>
-          <div class="rx-actions"><button id="reception-hint" class="rx-hint-btn" type="button">QUERO UMA DICA</button><span>SEM TEMPO LIMITE · SEM PUNIÇÕES</span></div>
+    <aside id="sheet-panel" class="sheet-panel hidden" role="dialog" aria-label="Terminal de planilha"></aside>
+
+    <section id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+      <div class="overlay-card">
+        <span class="victory-eyebrow">PAUSA</span>
+        <h2 id="pause-title">Fase <span id="pause-stage"></span></h2>
+        <div class="overlay-actions">
+          <button type="button" class="primary-btn small" id="resume">CONTINUAR</button>
+          <button type="button" class="ghost-btn" id="to-checkpoint">VOLTAR AO CHECKPOINT</button>
+          <button type="button" class="ghost-btn" id="restart-stage">REINICIAR FASE</button>
+          <button type="button" class="ghost-btn" id="to-menu">MENU DE FASES</button>
         </div>
       </div>
     </section>
 
-    <section id="mission-dialog" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="mission-title">
-      <div class="modal-backdrop"></div>
-      <div class="workstation">
-        <div class="station-header"><div class="station-headline"><span class="terminal-icon">⌗</span><div><small>CONSOLE / CENTRAL DE DADOS</small><h2 id="mission-title">Terminal</h2></div></div><button id="close-dialog" class="close-btn" aria-label="Fechar terminal">×</button></div>
-        <div id="filter-mission" class="mission-content hidden">
-          <div class="challenge-intro"><span class="task-number">DESAFIO 01</span><h3>Encontre os prazos urgentes</h3><p>Filtre os registros para exibir <strong>somente os processos com prazo inferior a 5 dias</strong>. Depois, valide o resultado.</p></div>
-          <div class="sheet-toolbar"><div><span class="sheet-pill">DADOS</span><span class="sheet-filename">prazos_de_atendimento.xlsx</span></div><div class="sheet-status" id="filter-count">6 linhas</div></div>
-          <div class="sheet-scroll"><table class="sheet"><thead><tr><th class="row-n">#</th><th>A · REGISTRO</th><th>B · TIPO</th><th>C · PRAZO (DIAS)</th></tr></thead><tbody id="filter-rows"></tbody></table></div>
-          <div class="filter-controls"><label>Coluna <select id="filter-column"><option value="C">C · PRAZO (DIAS)</option><option value="B">B · TIPO</option></select></label><label>Condição <select id="filter-operator"><option value="<">Menor que (&lt;)</option><option value="<=">Menor ou igual (≤)</option><option value=">">Maior que (&gt;)</option><option value=">=">Maior ou igual (≥)</option><option value="=">Igual a (=)</option></select></label><label>Valor <input id="filter-value" inputmode="numeric" type="number" min="0" max="30" value="5" /></label></div>
-          <div id="filter-feedback" class="feedback">Dica: aplique o filtro à coluna que contém a quantidade de dias.</div>
-          <div class="modal-actions"><button class="ghost-btn" id="apply-filter">APLICAR FILTRO</button><button class="primary-btn small" id="validate-filter">VALIDAR E ATIVAR PONTE →</button></div>
+    <section id="results" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="results-title">
+      <div class="completion-bg"></div>
+      <div class="overlay-card results-card">
+        <span class="victory-eyebrow" id="results-eyebrow">✦ FASE CONCLUÍDA ✦</span>
+        <h2 id="results-title"></h2>
+        <div class="results-grid">
+          <div><small>TEMPO</small><strong id="results-time"></strong><span id="results-medal" class="medal"></span></div>
+          <div><small>CUBOS</small><strong id="results-cubes"></strong></div>
+          <div><small>SEGREDOS</small><strong id="results-secrets"></strong></div>
         </div>
-        <div id="sum-mission" class="mission-content hidden">
-          <div class="challenge-intro"><span class="task-number">DESAFIO 02</span><h3>Restaure a energia do elevador</h3><p>Some as cargas de energia das quatro unidades. Digite uma <strong>fórmula de Excel</strong> que calcule os valores de <strong>C2 até C5</strong>.</p></div>
-          <div class="sheet-toolbar"><div><span class="sheet-pill">FÓRMULAS</span><span class="sheet-filename">energia_setores.xlsx</span></div><div class="sheet-status">C2:C5</div></div>
-          <div class="sheet-scroll"><table class="sheet"><thead><tr><th class="row-n">#</th><th>A · UNIDADE</th><th>B · STATUS</th><th>C · CARGA</th></tr></thead><tbody><tr><td>2</td><td>Arquivo</td><td>OK</td><td>8</td></tr><tr><td>3</td><td>Atendimento</td><td>OK</td><td>12</td></tr><tr><td>4</td><td>Documentação</td><td>OK</td><td>5</td></tr><tr><td>5</td><td>Tecnologia</td><td>OK</td><td>7</td></tr><tr class="answer-row"><td>6</td><td>TOTAL</td><td>ENERGIA</td><td id="sum-display">?</td></tr></tbody></table></div>
-          <label class="formula-label">fx <input id="formula-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="=SOMA(C2:C5)" aria-label="Fórmula para somar C2 até C5" /></label>
-          <div id="sum-feedback" class="feedback">Use =SOMA(intervalo) ou a soma das referências das células.</div>
-          <div class="modal-actions"><button class="ghost-btn" id="hint-formula">VER DICA</button><button class="primary-btn small" id="validate-sum">CALCULAR E ATIVAR ELEVADOR →</button></div>
+        <div class="skills" id="results-skills"></div>
+        <div class="overlay-actions">
+          <button type="button" class="primary-btn small" id="results-next">PRÓXIMA FASE →</button>
+          <button type="button" class="ghost-btn" id="results-trial">CONTRA O RELÓGIO ◷</button>
+          <button type="button" class="ghost-btn" id="results-menu">MENU DE FASES</button>
         </div>
-        <div class="station-footer"><span>⌘ LEVI OS • SIMULAÇÃO DIDÁTICA</span><span>ESC PARA FECHAR</span></div>
       </div>
     </section>
-
-    <section id="completion" class="completion hidden" role="dialog" aria-modal="true" aria-labelledby="victory-title"><div class="completion-bg"></div><div class="completion-card"><span class="victory-eyebrow">✦ MISSÃO CONCLUÍDA ✦</span><h2 id="victory-title">SISTEMA<br><em>RESTAURADO!</em></h2><p>Você ajudou o Levi a religar a Central de Dados usando habilidades de Excel de verdade.</p><div class="skills"><span>✓ LINHAS E COLUNAS</span><span>✓ FILTRAGEM DE DADOS</span><span>✓ FÓRMULA SOMA</span><span id="victory-cubes">◆ 0/8 CUBOS</span></div><button class="primary-btn" id="restart">JOGAR NOVAMENTE ↻</button></div></section>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

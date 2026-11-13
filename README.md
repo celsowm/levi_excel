@@ -1,9 +1,9 @@
-# LEVI — Operação Planilha · POC 0.4
+# LEVI — Operação Planilha · POC 0.6
 
 > **Roadmap v2:** o protótipo evoluiu para a POC 0.4; o redesign completo permanece em desenvolvimento. O redesign está especificado, mas **ainda não foi implementado**. O objetivo é uma aventura 3D mais polida e uma trilha gradual de Excel até PROCV.  
 > Consulte [Game Design v2](docs/GAME_DESIGN_V2.md), [Trilha Excel](docs/EXCEL_CURRICULUM_V2.md), [World 01 / Vertical Slice](docs/VERTICAL_SLICE_V2.md) e [Plano técnico para Codex](docs/IMPLEMENTATION_PLAN_V2.md) e [Ação e Plataforma 3D](docs/ACTION_PLATFORM_V2.md).
 
-Jogo educativo de **ação e plataforma 3D** com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O saguão futurista tem plataformas, coletáveis e dois desafios: filtrar uma planilha para construir uma ponte e usar `SOMA` para ligar o elevador.
+Jogo educativo de **ação e plataforma 3D** com o robô **Levi** para ensinar Excel aos jovens da FIA da PGE-RJ. O World 01 tem três fases de plataforma em que a planilha mexe no mundo ao vivo: editar uma célula, classificar, filtrar e escrever `=SOMA(...)` abrem caminho para o Levi.
 
 ![Conceito do saguão](art/concepts/concept-01.jpg)
 
@@ -44,41 +44,43 @@ npm run preview   # prévia do build
 | Arrastar sobre o cenário | Orbitar a câmera |
 | H | Mostrar/ocultar dicas de controles |
 | Shift | Correr |
-| E | Interagir com terminais e elevador |
-| Esc | Fechar terminal |
+| E | Abrir terminal |
+| Esc | Pausa / fechar terminal |
 | R | Voltar ao checkpoint |
 
 No celular, use os controles na tela, incluindo o botão **DASH**, e arraste sobre o cenário para girar a câmera.
 
-### Cenário modelado no Blender (v0.5)
-O World 01 agora é construído no **Blender** por `art/blender/build_world01.py`. O script gera a arquitetura (átrio com pele de vidro, mezanino, claraboias, balcão curvo de nogueira, banco de elevadores e arquivo inferior), os prefabs do jogo (drones, plataformas, jump pad, barreira, scanner, ponte, cubos de dados), faz o **bake da iluminação no Cycles** e exporta `public/world/*.glb`, o lightmap e `src/data/world01.level.json` (colisão, pisos e posições). Em runtime, a arquitetura usa a luz baked, as faixas de LED alimentam o bloom e o Levi recebe uma sombra de contato. Texturas e folhagem vêm do Poly Haven (CC0). Detalhes, convenções e como reconstruir estão em [docs/BLENDER_PIPELINE_V3.md](docs/BLENDER_PIPELINE_V3.md).
+### World 01 em três fases, planilha viva (v0.6)
+O World 01 agora tem três fases maiores: **1-1 Jardim e Recepção**, **1-2 Galeria da Fila** e **1-3 Átrio de Dados**. Cada terminal abre um painel lateral com uma planilha de verdade, e cada alteração mexe no mundo ao vivo: a célula C4 sobe a passarela, classificar move os elevadores, o filtro liga as plataformas de dados e `=SOMA(C2:C5)` liga o ventilador. Há contra o relógio com medalhas, cubos, segredos e drones-sentinela. Detalhes em [docs/WORLD01_STAGES_V4.md](docs/WORLD01_STAGES_V4.md).
+
+As fases são modeladas no **Blender** (`art/blender/stage_1_*.py` sobre o kit `levi_kit.py`), com bake de iluminação no Cycles. Convenções em [docs/BLENDER_PIPELINE_V3.md](docs/BLENDER_PIPELINE_V3.md).
 
 ```bash
-npm run world   # requer Blender 4.2+; reconstrói e faz o bake do cenário
+npm run world   # requer Blender 4.2+; reconstrói as três fases e os props, com bake
 ```
-
-### Experimento de ação/plataforma (v0.2)
-Antes de chegar ao terminal de filtro, experimente atravessar a barreira digital usando dash (J/X) ou salto duplo. À direita da entrada há um **circuito opcional** com plataforma de impulso, duas plataformas móveis, drone, checkpoint e anel de chegada. As missões de Excel da POC continuam disponíveis; este incremento valida a movimentação antes do redesign visual/pedagógico v2. O circuito usa colisão de superfície e obstáculo, ainda não é o controlador completo com física em cápsula previsto no plano.
 
 ## Missões
 
-0. Vá até o balcão da recepção e encontre o registro **ATD-104** na coluna A. Aprenda linhas e colunas sem fórmulas.
-1. Encontre o terminal **Filtro** e mostre apenas processos com prazos inferiores a cinco dias.
-2. Atravesse a ponte que foi ativada.
-3. No terminal **Soma**, escreva uma fórmula como `=SOMA(C2:C5)` para recuperar energia.
-4. Chegue ao elevador; opcionalmente, colete os oito cubos de dados.
+| Fase | Missão | Habilidade |
+| --- | --- | --- |
+| 1-1 | M00 · Uma entrega para o Levi | Linhas, colunas e registros |
+| 1-1 | M01 · A passarela do mezanino | Selecionar e editar uma célula |
+| 1-2 | M02 · Fila dos elevadores | Classificar linhas inteiras |
+| 1-3 | M03 · Plataformas de dados | Filtrar registros |
+| 1-3 | SOMA · Energia dos ventiladores | Fórmula SOMA |
+| 1-3 | M04 · Sala do Mestre (opcional, secreta) | Filtrar + classificar |
 
 ## Estrutura
 
-- `src/`: cena, movimento do Levi, missões e HUD. `src/data/world01.level.json` é exportado pelo Blender.
-- `art/blender/`: script do cenário, texturas e folhagem (fonte da verdade do World 01).
-- `public/world/`: cenário e props exportados do Blender, mais o lightmap.
+- `src/`: motor de planilha, missões, entidades, controlador do Levi, painel da planilha e HUD. `src/data/stages/*.json` é exportado pelo Blender.
+- `art/blender/`: kit, fases, prefabs, texturas e folhagem (fonte da verdade do World 01).
+- `public/stages/`: GLB e lightmap de cada fase, mais `props.glb`.
 - `scripts/build-world.mjs`: Blender headless + compressão meshopt.
 - `public/`: assets públicos gerados para o build e imagem de capa.
 - `assets/model/`: modelo `levi.glb` original compactado em blocos Brotli.
 - `scripts/restore-model.mjs`: remontagem e validação de SHA-256.
 - `art/concepts/`: três conceitos visuais das fases.
-- `tests/`: testes das fórmulas didáticas, da física e da navegabilidade do nível exportado.
+- `tests/`: planilha, missões, progresso, física e um grafo de saltos que verifica cada fase exportada.
 - `.github/workflows/pages.yml`: build + deploy automático de `main` para GitHub Pages.
 
 Projeto experimental de aprendizagem e prototipagem. O avaliador de fórmulas é didático, não um motor completo do Microsoft Excel.

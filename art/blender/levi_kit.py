@@ -44,11 +44,13 @@ def begin_stage(stage_id, name, bounds, spawn, spawn_yaw=0.0, cull_top=1e9, cull
                   'assets': {'world': f'stages/{stage_id}/world.glb', 'lightmap': f'stages/{stage_id}/lightmap.webp'}})
     CULL['top'], CULL['bottom'] = cull_top, cull_bottom
 
-def collider(id, x, z, w, d, min_y=0.0, max_y=2.0, camera_only=False):
+def collider(id, x, z, w, d, min_y=0.0, max_y=2.0, camera_only=False, player_only=False):
     entry = {'id': id, 'x': round(x, 3), 'z': round(z, 3), 'width': round(w, 3), 'depth': round(d, 3),
              'minY': round(min_y, 3), 'maxY': round(max_y, 3)}
     if camera_only:
         entry['cameraOnly'] = True
+    if player_only:          # glazing: blocks Levi, but the camera may look through it
+        entry['playerOnly'] = True
     STAGE['colliders'].append(entry)
 
 def floor(id, x0, x1, z0, z1, y=FLOOR_Y, requires=None):
@@ -71,7 +73,8 @@ def entity(type, id, **fields):
 def deck(id, kind, x, y, z, **fields):
     """A gameplay platform whose deck TOP is at y (prefab deck_<kind>/lift/data)."""
     w, d = DECKS[kind]
-    return entity('platform', id, prefab=kind, x=x, y=y, z=z, w=w, d=d, **fields)
+    fields.setdefault('prefab', kind)
+    return entity('platform', id, x=x, y=y, z=z, w=w, d=d, **fields)
 
 # ---------------------------------------------------------------- materials
 MATS = {
@@ -380,7 +383,7 @@ def slab(id, x0, x1, z0, z1, y=FLOOR_Y, finish='marble', thickness=0.6, edge_lig
     box(W, 'concrete', w, thickness, d, xc, y - 0.04 - thickness / 2, zc)
     box(W, finish, w - 0.04, 0.04, d - 0.04, xc, y - 0.02, zc)
     if edge_light:
-        box(W, 'E_cyan', w - 0.1, 0.04, 0.04, xc, y - 0.2, z0 if z0 < z1 else z1)
+        box(W, 'E_cyan', w - 0.1, 0.04, 0.04, xc, y - 0.2, max(z0, z1))
     if register:
         floor(id, x0, x1, z0, z1, y)
 
