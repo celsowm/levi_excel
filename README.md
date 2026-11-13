@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`. O modelo `public/levi.glb` é reconstruído automaticamente antes de executar Vite, a partir de blocos Brotli versionados em `assets/model/`. A reconstrução verifica o SHA-256 e produz **exatamente os bytes do GLB versionado**. Os ciclos de andar e correr (`Andar`, `Correr`) são gerados por `art/blender/levi_anim.py` sobre o rig original; depois de regerar, os blocos e o hash em `scripts/restore-model.mjs` precisam ser atualizados. Essa organização evita falhas no transporte de um blob binário grande e não degrada o personagem.
+Abra `http://localhost:5173`. O modelo `public/levi.glb` é reconstruído automaticamente antes de executar Vite, a partir de blocos Brotli versionados em `assets/model/`. A reconstrução verifica o SHA-256 e produz **exatamente os bytes do GLB versionado**. Os clipes de locomoção (`Andar`, `Correr`, `Pular`, `Salto`, `Aterrissar`) são gerados por `art/blender/levi_anim.py` sobre o rig original; depois de regerar, `node scripts/pack-model.mjs` atualiza os blocos e o hash. Essa organização evita falhas no transporte de um blob binário grande e não degrada o personagem.
 
 ```bash
 npm test          # testes unitários

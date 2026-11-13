@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 
 const root = resolve(import.meta.dirname, '..');
 const modelFile = resolve(root, 'public/levi.glb');
-const expectedHash = 'e16e7ab937395eccd72466f49f3ec20cd73e71d3564e5609e87b34fc787ce545';
+const expectedHash = '26a0c439c8030ea64513e159da07d7a2f9b43154c8b6f174f0126d00e38243dc';
 const hash = data => createHash('sha256').update(data).digest('hex');
 
 if (!existsSync(modelFile) || hash(readFileSync(modelFile)) !== expectedHash) {

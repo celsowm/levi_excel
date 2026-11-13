@@ -234,8 +234,13 @@ function handleEvents(events) {
         }
         run.checkpoint = { x: ev.entity.x, y: ev.entity.y, z: ev.entity.z };
         break;
+      case 'jump': levi.jump(ev.double); break;
+      case 'land': levi.land(Math.hypot(game.player.state.vx, game.player.state.vz)); break;
       case 'barrier': toast('BARREIRA ROMPIDA!', 1600); break;
-      case 'pad': once('pad', 'IMPULSO! Aperte Espaço no ar para o salto duplo.', 2600); break;
+      case 'pad':
+        levi.jump(false);
+        once('pad', 'IMPULSO! Aperte Espaço no ar para o salto duplo.', 2600);
+        break;
       case 'fan': once('fan', 'Coluna de ar! Solte-se para cima e vá até a sacada.', 2600); break;
       case 'bump': once('bump', 'Cuidado com os drones-sentinela: eles empurram o Levi.', 2600); break;
       case 'zap': respawn('O scanner detectou o Levi! Pule por cima do feixe.'); return;
