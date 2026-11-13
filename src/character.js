@@ -2,7 +2,10 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { modelFacingYaw, smoothYaw } from './movement.js';
 
-const CLIPS = ['Parado', 'Andar', 'Pular', 'Acenar', 'Dancar', 'Comemorar'];
+const CLIPS = ['Parado', 'Andar', 'Correr', 'Pular', 'Acenar', 'Dancar', 'Comemorar'];
+// Ground speed (m/s) each in-place cycle was authored for (art/blender/levi_anim.py).
+const GAIT_SPEED = { Andar: 3.4, Correr: 6.4 };
+const SPRINT_FROM = 5.4;
 
 export function createLevi(scene) {
   const root = new THREE.Group();
@@ -62,6 +65,10 @@ export function createLevi(scene) {
     if (!next || current === name) return;
     const old = actions.get(current);
     next.reset();
+    // Walk <-> run keep the same step phase so the feet don't skip on the switch.
+    if (old && GAIT_SPEED[name] && GAIT_SPEED[current]) {
+      next.time = (old.time / old.getClip().duration) * next.getClip().duration;
+    }
     next.enabled = true;
     next.setEffectiveWeight(1);
     next.setEffectiveTimeScale(1);
@@ -80,11 +87,14 @@ export function createLevi(scene) {
     }
     if (celebrationRemaining > 0) celebrationRemaining = Math.max(0, celebrationRemaining - dt);
     const desired = (victory || celebrationRemaining > 0) ? 'Comemorar'
-      : jumping ? 'Pular' : movementSpeed > 0.12 ? 'Andar' : 'Parado';
-    if (desired !== current) play(desired);
-    // The walk clip is in-place: match its playback rate to ground speed.
-    if (current === 'Andar') {
-      actions.get('Andar')?.setEffectiveTimeScale(THREE.MathUtils.clamp(movementSpeed / 2.65, 0.8, 2.45));
+      : jumping ? 'Pular'
+      : movementSpeed > SPRINT_FROM && actions.has('Correr') ? 'Correr'
+      : movementSpeed > 0.12 ? 'Andar' : 'Parado';
+    if (desired !== current) play(desired, GAIT_SPEED[desired] && GAIT_SPEED[current] ? 0.12 : 0.18);
+    // The gait clips are in-place: match their playback rate to ground speed.
+    if (GAIT_SPEED[current]) {
+      actions.get(current)?.setEffectiveTimeScale(
+        THREE.MathUtils.clamp(movementSpeed / GAIT_SPEED[current], 0.55, 1.6));
     }
   }
 

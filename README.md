@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`. O modelo `public/levi.glb` é reconstruído automaticamente antes de executar Vite, a partir de blocos Brotli versionados em `assets/model/`. A reconstrução verifica o SHA-256 e produz **exatamente os bytes do GLB original**. Essa organização evita falhas no transporte de um blob binário grande e não degrada o personagem.
+Abra `http://localhost:5173`. O modelo `public/levi.glb` é reconstruído automaticamente antes de executar Vite, a partir de blocos Brotli versionados em `assets/model/`. A reconstrução verifica o SHA-256 e produz **exatamente os bytes do GLB versionado**. Os ciclos de andar e correr (`Andar`, `Correr`) são gerados por `art/blender/levi_anim.py` sobre o rig original; depois de regerar, os blocos e o hash em `scripts/restore-model.mjs` precisam ser atualizados. Essa organização evita falhas no transporte de um blob binário grande e não degrada o personagem.
 
 ```bash
 npm test          # testes unitários
@@ -77,7 +77,7 @@ npm run world   # requer Blender 4.2+; reconstrói as três fases e os props, co
 - `public/stages/`: GLB e lightmap de cada fase, mais `props.glb`.
 - `scripts/build-world.mjs`: Blender headless + compressão meshopt.
 - `public/`: assets públicos gerados para o build e imagem de capa.
-- `assets/model/`: modelo `levi.glb` original compactado em blocos Brotli.
+- `assets/model/`: modelo `levi.glb` (com os ciclos de andar/correr novos) compactado em blocos Brotli.
 - `scripts/restore-model.mjs`: remontagem e validação de SHA-256.
 - `art/concepts/`: três conceitos visuais das fases.
 - `tests/`: planilha, missões, progresso, física e um grafo de saltos que verifica cada fase exportada.
