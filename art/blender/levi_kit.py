@@ -111,6 +111,11 @@ MATS = {
     'RT_leaf2':   ('RT', (0.3, 0.55, 0.25), 0.8, 0.0, {}),
     'RT_bark':    ('RT', (0.3, 0.22, 0.16), 0.9, 0.0, {}),
     'RT_water':   ('RT', (0.15, 0.35, 0.42), 0.05, 0.3, {}),
+    # Lettering: glyphs are too small for lightmap texels (they baked to dark blocks).
+    'RT_white':   ('RT', (0.93, 0.93, 0.91), 0.3, 0.0, {}),
+    'RT_bronze':  ('RT', (0.52, 0.37, 0.22), 0.3, 0.9, {}),
+    'RT_navy':    ('RT', (0.035, 0.08, 0.13), 0.4, 0.3, {}),
+    'RT_yellow':  ('RT', (1.0, 0.6, 0.08), 0.35, 0.1, {}),
     'RT_plant1':  ('RT', (1, 1, 1), 0.7, 0.0, {'tex': os.path.join(MODELS, 'plant01_leaves.png'), 'alpha': True, 'size': 0}),
     'RT_plant2':  ('RT', (1, 1, 1), 0.7, 0.0, {'tex': os.path.join(MODELS, 'plant02_leaves.png'), 'alpha': True, 'size': 0}),
     'RT_stem':    ('RT', (1, 1, 1), 0.8, 0.0, {'tex': os.path.join(MODELS, 'plant01_stem.png'), 'size': 0}),
@@ -331,6 +336,10 @@ def prism(group, mat, outline, y0, y1, bevel=0.0):
 
 FONT = [None]
 def text(group, mat, body, size, x, y, z, yaw=0.0, pitch=0.0, depth=0.03, align='CENTER'):
+    # Glyph islands get a texel or two in the lightmap and bake black at the edges,
+    # so lettering is realtime lit instead (RT_ twin of the requested material).
+    if MATS[mat][0] == 'LM':
+        mat = 'RT_' + mat
     if FONT[0] is None:
         for path in ['/System/Library/Fonts/Supplemental/Arial Bold.ttf',
                      '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf']:

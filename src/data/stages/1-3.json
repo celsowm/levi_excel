@@ -993,7 +993,7 @@
   }
  ],
  "render": {
-  "lightMapScale": 2.1871
+  "lightMapScale": 2.1269
  },
  "assets": {
   "world": "stages/1-3/world.glb",
